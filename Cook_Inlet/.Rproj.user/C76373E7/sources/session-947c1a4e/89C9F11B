@@ -1,0 +1,28 @@
+{
+    "id": "89C9F11B",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1702325687831.0,
+    "source_on_save": false,
+    "relative_order": 11,
+    "properties": {
+        "id": "34cd55a1d46441f0bd25dfe42b7fe472",
+        "name": "catch_list",
+        "title": "catch_list",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 140493853219136,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1702325687831,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,26 @@
+{
+    "id": "2FA4B44B",
+    "path": "~/Cook-Inlet-SAFE-main/Cook_Inlet/Cook_Inlet_functions.R",
+    "project_path": "Cook_Inlet_functions.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1703696028631.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "436,35",
+        "scrollLine": "423"
+    },
+    "folds": "6|128|351|0|\n189|23|341|2|\n355|84|403|0|\n461|77|576|0|\n",
+    "lastKnownWriteTime": 1704502480,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1705003327369,
+    "read_only": false,
+    "read_only_alternatives": []
+}
