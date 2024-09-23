@@ -10,6 +10,7 @@
 library(forecast)
 library(car)
 library(boot)
+library(atsar)
 source('Cook_Inlet_functions.R')
 
 #Load Data

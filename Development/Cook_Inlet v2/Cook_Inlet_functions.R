@@ -49,7 +49,7 @@ Tier_1_fun <- function(C_total , C_EEZ, Run, Esc, Esc_goal, Esc_goal_pre, years,
     #Produce/load forecast of run size
     #If a sibling forecast is possible (state data made available), (1) load the forecasted run size (use published value for this exercise)
     if(run_forecast_method=='sibling'){
-      run_forecast_mean <- sib_forecast
+      run_forecast_mean <- sib_forecast$Run.Forecast[sib_forecast$Year==y_obj]
       run_forcast_80_CI <- NULL #if/when we take over the sibling forecasting we will be able to pull the uncertainty estimates
       run_forcast_95_CI <- NULL
       run_preseason <- run_forecast_mean
@@ -333,7 +333,7 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   #Compute retrospective preseason ABC (OFL) over the desired time window
   Preseason_OFL <- vector(length=length(Postseason_OFL))
   Preseason_run <- vector(length=length(Postseason_OFL))
-  
+  yr <- vector(length=buffer_window)
   
   for(i in 1:buffer_window){
     Preseason <- Tier_1_fun(C_total=C_total, C_EEZ=C_EEZ, Run=Run, Esc=Esc, ABC_buffer=1, sib_forecast = sib_forecast,
@@ -341,20 +341,20 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
                             F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method, write=FALSE, plot=FALSE)
     Preseason_OFL[i] <- Preseason$Preseason_Table[,'potential_yield_EEZ_preseason']
     Preseason_run[i] <- Preseason$Preseason_Table[,'run_preseason']
+    yr[i] <- (y_obj - i)
   }
   Preseason_OFL <- rev(Preseason_OFL)
   Preseason_run <- rev(Preseason_run)
   
   #Log accuracy ratio/MSE for ABC based on
   LAR <- log((Preseason_OFL+0.00000000000001)/(Postseason_OFL+0.00000000000001))
-  #LAR <- log((Preseason_OFL)/(Postseason_OFL))
   LAR <- na.omit(is.finite(LAR)*LAR)
-  MSA <- 100*(exp(median(abs(LAR), na.rm=TRUE))-1) #Gives median unsigned percentage error
-  
+  LAR_MSA <- LAR[LAR>0] #Only calculate MSA/buffer based on positve errors (overforecast)
+  MSA <- 100*(exp(median(abs(LAR_MSA), na.rm=TRUE))-1) #Gives median unsigned percentage error
+
   #Compute buffer based on MSA
   buffer <- max((100-MSA)/100, 0.1)
 
-  
   #Write to .csv
   buffer_mat <- cbind(MSA, buffer)
   colnames(buffer_mat) <- c('MSA', 'buffer_factor')
@@ -365,8 +365,12 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   return_list$MSA <- MSA
   return_list$buffer <- buffer
   return_list$LAR <- LAR
-  return_list$Preseason_run
-
+  return_list$LAR_MSA <- LAR_MSA
+  return_list$yr <- yr
+  
+  return_list$Preseason_run <- Preseason_run
+  return_list$Preseason_OFL <- Preseason_OFL
+  
   return(return_list)
 }
 
@@ -391,14 +395,13 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
     }
     
     #Determine OFL
-    catch_lag <- nrow(Preseason_table)
-    OFL <- max(Preseason_table$C_EEZ[(nrow(Preseason_table)-(catch_lag-1)):nrow(Preseason_table)])*gen_lag
+    OFL <- max(rollmean(x=Preseason_table$C_EEZ, k=gen_lag))
     if(gen_lag > 1){
       OFL_pre <- OFL - sum(Preseason_table$C_EEZ[(nrow(Preseason_table)-gen_lag+2):nrow(Preseason_table)])
     }else{
       OFL_pre <- OFL
     }
-
+    
     #Determine ACL
     ABC <- vector(length=length(buffer))
     ABC_pre <- vector(length=length(buffer))
@@ -465,7 +468,7 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
         ABC_exceed[i] <- 'NO'
       }
     }
-
+    
     #Write to csv
     Postseason_SDC <- data.frame(cbind(buffer, rep(OFL, length(buffer)), ABC, rep(Cum_Catch, length(buffer)), ABC_exceed))
     colnames(Postseason_SDC) <- c('buffer', 'OFL', 'ABC', 'Cumulative catch', 'ABC exceeded')
