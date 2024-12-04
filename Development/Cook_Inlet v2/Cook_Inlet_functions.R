@@ -3,8 +3,25 @@
 #The purpose of this script is to produce functions used in performing tier 1 and tier 3 calculations for the Cook Inlet SAFE report
 
 #Function to do all FMP calculations for Tier 1 stocks
-Tier_1_fun <- function(C_total , C_EEZ, Run, Esc, Esc_goal, Esc_goal_pre, years, ABC_buffer=1, write=TRUE, plot=TRUE, sib_forecast=NULL,
-                       gen_lag, y_obj, preseason=TRUE, postseason=TRUE, F_state_forecast_method=NULL, run_forecast_method=NULL){
+Tier_1_fun <- function(C_total , 
+                       C_EEZ, 
+                       Run, 
+                       Esc, 
+                       Esc_goal,
+                       Esc_goal_pre,
+                       years, 
+                       ABC_buffer=1, 
+                       write=TRUE, 
+                       plot=TRUE,
+                       sib_forecast=NULL,
+                       gen_lag, 
+                       y_obj, 
+                       preseason=TRUE,
+                       postseason=TRUE, 
+                       F_state_forecast_method=NULL, 
+                       run_forecast_method=NULL, 
+                       buffer_ABC=NULL,
+                       sib_forecast_full=NULL){
   #Preseason calculations
   if(preseason==TRUE){
     #Re-construct table for calculations (this is in the event that the incoming data is not already packaged in a neat table from the state)
@@ -100,34 +117,163 @@ Tier_1_fun <- function(C_total , C_EEZ, Run, Esc, Esc_goal, Esc_goal_pre, years,
     }
     #Preseason plots
     if(plot==TRUE){
-      png(file=paste0(getwd(),'/',stock,'/', y_obj,'_F_state_forecast=',F_state_forecast_method,'_run_forecast=',run_forecast_method, '_preseason_plots.png'))
-      par(mfrow=c(1,3), mar=c(0,4,0,0), oma=c(10,0.1,10,0.1))
+      # png(file=paste0(getwd(),'/',stock,'/', y_obj,'_F_state_forecast=',F_state_forecast_method,'_run_forecast=',run_forecast_method, '_preseason_plots.png'))
+      # par(mfrow=c(1,3), mar=c(0,4,0,0), oma=c(10,0.1,10,0.1))
       # 1) State harvest
       if(F_state_forecast_method=='arima'){
-        plot(base_table$Year, base_table$F_state, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
-             ylim=c(min(base_table$F_state, F_state_forecast_95_CI[1]), max(base_table$F_state, F_state_forecast_95_CI[2])))
-        points(y_obj, F_state_forecast_mean , col='red', pch=16, type='o', cex=1.1)
-        points(base_table$Year, base_table$F_bar_state, type='l', lty=2)
-        arrows(x0=y_obj, x1=y_obj, y0= F_state_forecast_80_CI[1], y1= F_state_forecast_80_CI[2], col='red', length=0, lwd=2)
-        arrows(x0=y_obj, x1=y_obj, y0= F_state_forecast_95_CI[1], y1= F_state_forecast_95_CI[2], col='red', length=0.05, lwd=1, angle=90, code=3)
-        mtext(side=2, 'State waters harvest rate', line=2.5, cex=0.85)
+        # plot(base_table$Year, base_table$F_state, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
+        #      ylim=c(min(base_table$F_state, F_state_forecast_95_CI[1]), max(base_table$F_state, F_state_forecast_95_CI[2])))
+        # points(y_obj, F_state_forecast_mean , col='red', pch=16, type='o', cex=1.1)
+        # points(base_table$Year, base_table$F_bar_state, type='l', lty=2)
+        # arrows(x0=y_obj, x1=y_obj, y0= F_state_forecast_80_CI[1], y1= F_state_forecast_80_CI[2], col='red', length=0, lwd=2)
+        # arrows(x0=y_obj, x1=y_obj, y0= F_state_forecast_95_CI[1], y1= F_state_forecast_95_CI[2], col='red', length=0.05, lwd=1, angle=90, code=3)
+        # mtext(side=2, 'State waters harvest rate', line=2.5, cex=0.85)
+        
+        F_stateDF <- rbind(base_table[,c("Year","F_state")], c(y_obj, NA))
+        F_stateDF$upr95 <- c(rep(NA,length(run_forecast$fitted)), F_state_forecast_95_CI[2])
+        F_stateDF$lwr95 <- c(rep(NA,length(run_forecast$fitted)), F_state_forecast_95_CI[1])
+        F_stateDF$upr80 <- c(rep(NA,length(F_state_forecast$fitted)), F_state_forecast_80_CI[2])
+        F_stateDF$lwr80 <- c(rep(NA,length(F_state_forecast$fitted)), F_state_forecast_80_CI[1])
+        F_stateDF$fitted <- c(inv.logit(F_state_forecast$fitted), NA)
+        F_stateDF$mean <- c(rep(NA,length(F_state_forecast$fitted)), F_state_forecast_mean)
+        F_stateDF$type <- factor(c(rep( "Obs", length(F_state_forecast$fitted)), "ARIMA"))
+        
+        #Color blind colors for plotting
+        colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                               "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+        
+        #Years used in assessment
+        n_years <- length(base_table$Year)
+        
+        #GG plot 
+        Fstate_plot <- ggplot(F_stateDF, aes(x = Year, y = F_state))+
+          geom_errorbar(aes(ymax = upr95, ymin  = lwr95, col = "95% CI"), linewidth = 1)+
+          geom_errorbar(aes(ymax = upr80, ymin  = lwr80, col = "80% CI"), linewidth = 1.5, width = 0)+
+          geom_line(aes(col = "Obs"),size = 1.2)+
+          geom_line(aes(y = fitted, col = "ARIMA"),size = 1,linetype = 2)+
+          geom_point(aes(y = mean, col = "Pred"), size = 4)+
+          geom_point(aes(col = type, size = type))+
+          labs(x = "Year", y = bquote("State harvest rate ( "~F[state]~")"))+
+          coord_cartesian(ylim=c(0,1),xlim=c(1999, y_obj+1))+
+          scale_x_continuous(breaks = seq(from=2000, to = 2030, by = 5))+
+          scale_size_manual(guide = "none", values = c(2,2))+
+          scale_color_manual(name="", 
+                             values = colorBlindBlack8[c(1,3,7,7,7)],
+                             breaks = c("Obs", "ARIMA", "Pred", "80% CI","95% CI"))+
+          # guides(color = guide_legend(override.aes = list(size=c(2,4,2,2,2))))+
+          theme_clean()+
+          theme(legend.position = "top",
+                axis.text = element_text(size = 12),
+                axis.title = element_text(size = 14), 
+                plot.background = element_blank(), 
+                legend.background = element_blank() )
+        
+        
+        
       }
       if(F_state_forecast_method == 'naive'){
-        plot(base_table$Year, base_table$F_state, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1))
-        points(y_obj, F_state_preseason , col='red', pch=16, type='o', cex=1.1)
-        points(base_table$Year, base_table$F_bar_state, type='l', lty=2)
-        mtext(side=2, 'State waters harvest rate', line=2.5, cex=0.85)
+        # plot(base_table$Year, base_table$F_state, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1))
+        # points(y_obj, F_state_preseason , col='red', pch=16, type='o', cex=1.1)
+        # points(base_table$Year, base_table$F_bar_state, type='l', lty=2)
+        # mtext(side=2, 'State waters harvest rate', line=2.5, cex=0.85)
       }
-      text(x=max(base_table$Year), y=0.9*c(max(base_table$F_state, F_state_forecast_95_CI[1])), 'A')
+      # text(x=max(base_table$Year), y=0.9*c(max(base_table$F_state, F_state_forecast_95_CI[1])), 'A')
       
       # 2) Run forecast
       if(run_forecast_method=='arima'){
-        plot(base_table$Year, base_table$Run, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
-             ylim=c(min(base_table$Run, run_forecast_95_CI[1]), max(base_table$Run, run_forecast_95_CI[2])))
-        points(y_obj, run_forecast_mean , col='red', pch=16, type='o', cex=1.1)
-        arrows(x0=y_obj, x1=y_obj, y0= run_forecast_80_CI[1], y1= run_forecast_80_CI[2], col='red', length=0, lwd=2)
-        arrows(x0=y_obj, x1=y_obj, y0= run_forecast_95_CI[1], y1= run_forecast_95_CI[2], col='red', length=0.05, lwd=1, angle=90, code=3)
-        mtext(side=2, 'Run size', line=2.5, cex=0.85)
+        # plot(base_table$Year, base_table$Run, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
+        #      ylim=c(min(base_table$Run, run_forecast_95_CI[1]), max(base_table$Run, run_forecast_95_CI[2])))
+        # points(y_obj, run_forecast_mean , col='red', pch=16, type='o', cex=1.1)
+        # arrows(x0=y_obj, x1=y_obj, y0= run_forecast_80_CI[1], y1= run_forecast_80_CI[2], col='red', length=0, lwd=2)
+        # arrows(x0=y_obj, x1=y_obj, y0= run_forecast_95_CI[1], y1= run_forecast_95_CI[2], col='red', length=0.05, lwd=1, angle=90, code=3)
+        # mtext(side=2, 'Run size', line=2.5, cex=0.85)
+        runsizeDF<- rbind(base_table[,c("Year","Run")], c(y_obj, NA))
+        runsizeDF$upr95 <- c(rep(NA,length(run_forecast$fitted)), run_forecast_95_CI[2])
+        runsizeDF$lwr95 <- c(rep(NA,length(run_forecast$fitted)), run_forecast_95_CI[1])
+        runsizeDF$upr80 <- c(rep(NA,length(run_forecast$fitted)), run_forecast_80_CI[2])
+        runsizeDF$lwr80 <- c(rep(NA,length(run_forecast$fitted)), run_forecast_80_CI[1])
+        runsizeDF$fitted <- c(exp(run_forecast$fitted), NA)
+        runsizeDF$type <- factor(c(rep( "Obs", n_years),"ARIMA"))
+        runsizeDF$mean <- c(rep(NA,length(run_forecast$fitted)), run_forecast_mean)
+        # runsizeDF$sibforecast <- c(Forecast$Run.Forecast, NA)
+        # runsizeDF<-left_join(runsizeDF, Forecast[,c(1,2)])
+        runsizeDF$sib.forecast <- c(sib_forecast_full,NA)
+        
+        temp.df<-data.frame("Year"=buffer_ABC$yr, "ARIMA_OOS"=buffer_ABC$Preseason_run)
+        
+        runsizeDF <- left_join(runsizeDF,temp.df, by = "Year")
+        
+        # Subset the df to get 10 year window with retrospective ARIMA projections
+        runsizeDF_MAPE <- runsizeDF[runsizeDF$Year %in% buffer_ABC$yr,]
+        
+        mape.sib <- round((1/length(runsizeDF_MAPE$Year))*sum(abs((runsizeDF_MAPE$Run - runsizeDF_MAPE$sib.forecast)/ runsizeDF_MAPE$Run),na.rm = TRUE)*100, 1)
+        mape.arima <- round((1/length(runsizeDF_MAPE$Year))*sum(abs((runsizeDF_MAPE$Run - runsizeDF_MAPE$ARIMA_OOS)/ runsizeDF_MAPE$Run),na.rm = TRUE)*100, 1)
+        
+        
+        # Compare observed run size to ARIMA fit
+        runsize_ARFIT_plot <- ggplot(runsizeDF, aes(x = Year, y = Run))+
+          geom_errorbar(aes(ymax = upr95, ymin  = lwr95, col = "95% CI"), linewidth = 1)+
+          geom_errorbar(aes(ymax = upr80, ymin  = lwr80, col = "80% CI"), linewidth = 1.5, width = 0)+
+          # geom_ribbon(aes(ymin = lwr80, ymax = upr80))+
+          geom_line(aes(col = "Obs"),size = 1.2)+
+          geom_line(aes(y = fitted, col = "ARIMA"),size = 1.2,linetype = 2)+
+          geom_point(aes(y = fitted, col = "ARIMA"), size = 2)+
+          geom_point(aes(col = type, size = type))+
+          geom_point(aes(y = mean, col = "Pred"), size = 4)+
+          # geom_point(aes(y = Forecast, col = "Sib"))+
+          # geom_line(aes(y = Forecast, col = "Sib"))+
+          # geom_richtext(aes(x = 2015, y = 2000, label = paste("MAPE<sub>ARIMA</sub> =", mape.arima,"%"), label.colour = "white"), inherit.aes = F)+
+          # geom_richtext(aes(x = 2015, y = 1800, label = paste("MAPE<sub>Sibling</sub> =", mape.sib, "%")),label.colour = "white", inherit.aes = F)+
+          labs(x = "Year", y = "Run size (000's)")+
+          coord_cartesian(xlim=c(1999, y_obj+1))+
+          scale_x_continuous(breaks = seq(from=2000, to = 2030, by = 5))+
+          scale_size_manual(guide = "none", values = c(2,2))+
+          scale_color_manual(name="", 
+                             values = colorBlindBlack8[c(1,3,7,7,7,7)],
+                             breaks = c("Obs","ARIMA","Pred","80% CI", "95% CI"))+
+          # guides(color = guide_legend(override.aes = list(size=c(2,4,2,2,2))))+
+          theme_clean()+
+          theme(legend.position = "top",
+                axis.text = element_text(size = 12),
+                axis.title = element_text(size = 14),
+                plot.background = element_blank(), 
+                legend.background = element_blank()
+          )
+        
+        # Compare out of sample ARIMA to sib
+        forecast_comp_plot <- ggplot(runsizeDF_MAPE, aes(x = Year, y = Run))+
+          # geom_errorbar(aes(ymax = upr95, ymin  = lwr95, col = "95% CI"), linewidth = 1)+
+          # geom_errorbar(aes(ymax = upr80, ymin  = lwr80, col = "80% CI"), linewidth = 1.5, width = 0)+
+          geom_ribbon(aes(ymin = lwr80, ymax = upr80))+
+          geom_line(aes(col = "Obs."),size = 1.2)+
+          geom_point(aes(col = "Obs."), size = 2)+
+          geom_line(aes(y = ARIMA_OOS, col = "ARIMA"),size = 1.2,linetype = 2)+
+          geom_point(aes(y = ARIMA_OOS, col = "ARIMA"), size = 2)+
+          # geom_point(aes(col = type, size = type))+
+          # geom_point(aes(y = mean, col = "ARIMA Projected"), size = 4)+
+          geom_point(aes(y = sib.forecast, col = "Sib."), size = 2)+
+          geom_line(aes(y = sib.forecast, col = "Sib."),size=1.2, linetype = 4)+
+          geom_richtext(aes(x = y_obj-2, y = max(runsizeDF$Run, na.rm = T), label = paste("MAPE<sub>ARIMA</sub> =", mape.arima,"%"), label.colour = "white"), inherit.aes = F)+
+          geom_richtext(aes(x = y_obj-2, y = (max(runsizeDF$Run, na.rm = T)-(.1*max(runsizeDF$Run, na.rm = T))), label = paste("MAPE<sub>Sibling</sub> =", mape.sib, "%")),label.colour = "white", inherit.aes = F)+
+          labs(x = "Year", y = "Run size (000's)")+
+          coord_cartesian(xlim=c(min(runsizeDF_MAPE$Year), y_obj-1))+
+          scale_x_continuous(breaks = seq(from=2000, to = 2030, by = 1))+
+          scale_size_manual(guide = "none", values = c(2,2))+
+          scale_color_manual(name="", 
+                             values = colorBlindBlack8[c(1,3,8,7,7,7)],
+                             breaks = c("Obs.","ARIMA", "Sib.","ARIMA Projected","80% CI", "95% CI"))+
+          # guides(color = guide_legend(override.aes = list(size=c(2,4,2,2,2))))+
+          theme_clean()+
+          theme(legend.position = "top",
+                axis.text = element_text(size = 12),
+                axis.title = element_text(size = 14),
+                plot.background = element_blank(), 
+                legend.background = element_blank()
+          )
+        
+        
+        
+        
       }
       if(run_forecast_method=='sibling'){
         plot(base_table$Year, base_table$Run, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
@@ -135,23 +281,75 @@ Tier_1_fun <- function(C_total , C_EEZ, Run, Esc, Esc_goal, Esc_goal_pre, years,
         points(y_obj, run_preseason , col='red', pch=16, type='o', cex=1.1)
         mtext(side=2, 'Run size', line=2.5, cex=0.85)
       }
-      text(x=max(base_table$Year), y=0.9*c(max(base_table$Run, run_preseason)), 'B')
+      # text(x=max(base_table$Year), y=0.9*c(max(base_table$Run, run_preseason)), 'B')
       
       # 3) Potential Yield
-      plot(base_table$Year, base_table$Potential_Yield_EEZ, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
-           ylim=c(min(base_table$Potential_Yield_EEZ, Potential_Yield_EEZ_preseason), max(base_table$Potential_Yield_EEZ, Potential_Yield_EEZ_preseason)))
-      points(y_obj,Potential_Yield_EEZ_preseason , col='red', pch=16, type='o', cex=1.1)
-      points(y_obj,ABC_preseason, col='red', pch=1, type='o', cex=1.1)
-      mtext(side=2, 'Potential Yield EEZ', line=2.5, cex=0.85)
-      text(x=max(base_table$Year), y=0.9*c(max(base_table$Potential_Yield_EEZ, Potential_Yield_EEZ_preseason)), 'C')
+      # plot(base_table$Year, base_table$Potential_Yield_EEZ, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
+      #      ylim=c(min(base_table$Potential_Yield_EEZ, Potential_Yield_EEZ_preseason), max(base_table$Potential_Yield_EEZ, Potential_Yield_EEZ_preseason)))
+      # points(y_obj,Potential_Yield_EEZ_preseason , col='red', pch=16, type='o', cex=1.1)
+      # points(y_obj,ABC_preseason, col='red', pch=1, type='o', cex=1.1)
+      # mtext(side=2, 'Potential Yield EEZ', line=2.5, cex=0.85)
+      # text(x=max(base_table$Year), y=0.9*c(max(base_table$Potential_Yield_EEZ, Potential_Yield_EEZ_preseason)), 'C')
       
+      
+      yieldDF <- rbind(base_table[,c("Year","Potential_Yield_EEZ")], c(y_obj, NA))
+      yieldDF$PotYield_Pred <- c(rep(NA,length(run_forecast$fitted)), Potential_Yield_EEZ_preseason) # Potential Yield EEZ
+      # yieldDF$type <- factor(c(rep( "Obs", n_years),"Pred"))
+      yieldDF$ABC <- c(rep(NA,length(run_forecast$fitted)), ABC_preseason) #ABC ? OFL reduced to using buffer
+      
+      # Plot potential yield over time and this years preseason OFL and ABC
+      yield_plot <- ggplot(yieldDF, aes(x = Year, y = Potential_Yield_EEZ))+
+        geom_line(aes(col = "Obs"),size = 1.2)+
+        # geom_line(aes(y = fitted, col = "Model fit"),size = 1.2,linetype = 2)+
+        # geom_point(aes(col = type), size = c(rep(2,n_years),7))+
+        geom_point(aes(col = "Obs"), size = 2)+
+        geom_point(aes(y = PotYield_Pred, col = "Projected"), size = 4)+
+        geom_point(aes(y = ABC, col = "ABC"), size = 4)+
+        labs(x = "Year", y = "Potential Yield EEZ")+
+        coord_cartesian(xlim=c(1999,y_obj+1))+
+        # scale_size_manual(guide = "none", values = c(2,4))+
+        scale_color_manual(name="",
+                           values = colorBlindBlack8[c(1,2,3)],
+                           breaks = c("Obs", "Projected", "ABC"))+
+        scale_x_continuous(breaks = seq(from=2000, to = 2030, by = 5))+
+        # guides(color = guide_legend(override.aes = list(size=c(2,4,2,2,2))))+
+        theme_clean()+
+        theme(legend.position = "top",
+              axis.text = element_text(size = 12),
+              axis.title = element_text(size = 14),
+              plot.background = element_blank(), 
+              legend.background = element_blank())
+      
+      png(file=paste0(getwd(),'/',stock,'/', y_obj,'_Fstate_forecast=',run_forecast_method, '_preseason_GGplots.png'),
+          width = 600,  height = 400)
+      print(Fstate_plot)
+      dev.off()
+      png(file=paste0(getwd(),'/',stock,'/', y_obj,'_run_forecast=',run_forecast_method, '_preseason_GGplots.png'),
+          width = 600,  height = 400)
+      print(runsize_ARFIT_plot)
+      dev.off()
+      png(file=paste0(getwd(),'/',stock,'/','_run_forecast=',run_forecast_method, '_RetroSpectivepreseason_GGplots.png'),
+          width = 600,  height = 400)
+      
+      print(forecast_comp_plot)
+      dev.off()
+      
+      zz <- ggarrange(Fstate_plot,runsize_ARFIT_plot, labels = c("a","b"), common.legend = T, vjust = c(0.1,0.1))
+      
+      comb.plot <- ggarrange(zz,forecast_comp_plot, ncol = 1, labels = c("","c"))
+      
+      png(file=paste0(getwd(),'/',stock,'/','_run_forecast=',run_forecast_method, '_CombinedPlot_GGplots.png'),
+          width = 600,  height = 500)
+      
+      print(comb.plot)
+      dev.off()
       # 4) F_EEZ Preseason
       #plot(base_table$Year, base_table$F_EEZ, type='o', col='black', pch=16, xlab=NA, ylab=NA, xlim=c(min(base_table$Year), max(base_table$Year)+1),
            #ylim=c(min(base_table$F_EEZ, F_EEZ_preseason, na.rm=TRUE), max(base_table$F_EEZ, F_EEZ_preseason, na.rm=TRUE )))
       #points(y_obj,F_EEZ_preseason , col='red', pch=16, type='o', cex=1.1)
       #mtext(side=2, 'F EEZ', line=2.5, cex=0.85)
       #text(x=max(base_table$Year), y=0.9*max(base_table$F_EEZ, F_EEZ_preseason, na.rm=TRUE), 'D')
-      dev.off()
+      #dev.off()
     }
   }
   #Postseason calculations
@@ -256,10 +454,13 @@ Tier_1_fun <- function(C_total , C_EEZ, Run, Esc, Esc_goal, Esc_goal_pre, years,
         round(Postseason_table$C_EEZ,0),
         round(Postseason_table$F_EEZ,3),
         round(Postseason_table$MFMT,3),
-        round(Postseason_table$Potential_Yield_EEZ,0)
+        round(Postseason_table$Potential_Yield_EEZ,0),
+        round(Postseason_table$Cum_Esc,0),
+        round(Postseason_table$MSST,0)
+        
       )
-      colnames(Postseason_table_SSC) <- c('Year', 'Run size', 'Escapement', 'Escapement goal', 'Total catch', 'State catch', 'F_state', 'EEZ Catch',' F_EEZ', 'MFMT', 'Potential Yield EEZ' )
-      write.csv(Postseason_table_SSC,file=paste0(getwd(),'/',stock,'/',y_obj,'_Postseason_table_SSC.csv'))
+      colnames(Postseason_table_SSC) <- c('Year', 'Run size', 'Escapement', 'Escapement goal', 'Total catch', 'State catch', 'F_state', 'EEZ Catch',' F_EEZ', 'MFMT', 'Potential Yield EEZ', 'Cumulative Esc.','MSST' )
+      write.csv(Postseason_table_SSC,file=paste0(getwd(),'/',stock,'/',y_obj,'_Postseason_table_SSC.csv'), row.names = FALSE)
     }
     #Postseason plots
     if(plot==TRUE){
@@ -345,6 +546,7 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   }
   Preseason_OFL <- rev(Preseason_OFL)
   Preseason_run <- rev(Preseason_run)
+  yr <- rev(yr)
   
   #Log accuracy ratio/MSE for ABC based on
   LAR <- log((Preseason_OFL+0.00000000000001)/(Postseason_OFL+0.00000000000001))
@@ -395,31 +597,32 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
     }
     
     #Determine OFL
-    OFL <- max(rollmean(x=Preseason_table$C_EEZ, k=gen_lag))
-    if(gen_lag > 1){
-      OFL_pre <- OFL - sum(Preseason_table$C_EEZ[(nrow(Preseason_table)-gen_lag+2):nrow(Preseason_table)])
-    }else{
-      OFL_pre <- OFL
-    }
+    OFL_pre <- max(rollmean(x=Preseason_table$C_EEZ, k=gen_lag))
+    OFL <- max(rollsum(x = Preseason_table$C_EEZ, k = gen_lag))
+    # if(gen_lag > 1){
+    #   OFL_pre <- OFL - sum(Preseason_table$C_EEZ[(nrow(Preseason_table)-gen_lag+2):nrow(Preseason_table)])
+    # }else{
+    #   OFL_pre <- OFL
+    # }
     
     #Determine ACL
     ABC <- vector(length=length(buffer))
-    ABC_pre <- vector(length=length(buffer))
-    ACL <- vector(length=length(buffer))
-    ACL_pre <- vector(length=length(buffer))
+    # ABC_pre <- vector(length=length(buffer))
+    # ACL <- vector(length=length(buffer))
+    # ACL_pre <- vector(length=length(buffer))
     
     for(i in 1:length(buffer)){
-      ABC[i] <- OFL*buffer[i]
-      ABC_pre[i] <- OFL_pre*buffer[i]
+      # ABC[i] <- OFL*buffer[i]
+      ABC[i] <- OFL_pre*(1-buffer[i])
       
       #Determine ABC
-      ACL[i] <- ABC[i]
-      ACL_pre[i] <- ABC_pre[i]
+      # ACL[i] <- ABC[i]
+      # ACL_pre[i] <- ABC_pre[i]
     }
     
     #Write to csv
-    Preseason_SDC <- cbind(buffer, rep(OFL,length(buffer)), ABC, rep(OFL_pre, length(buffer)), ABC_pre)
-    colnames(Preseason_SDC) <- c('buffer', 'OFL', 'ABC', 'Preseason OFL', 'Preseason ABC')
+    Preseason_SDC <- cbind(paste0(buffer*100,"%"), round(rep(OFL_pre, length(buffer)),0), round(ABC,0),rep(OFL,length(buffer)))
+    colnames(Preseason_SDC) <- c('Buffer', 'Preseason OFL', 'ABC', 'OFL')
     Preseason_table$C_total <- round(Preseason_table$C_total, 0)
     Preseason_table$C_EEZ<- round(Preseason_table$C_EEZ, 0)
     Preseason_table$Cum_Catch<- round(Preseason_table$Cum_Catch, 0)
@@ -427,7 +630,7 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
     colnames(Preseason_table) <- c('Year', 'Total catch', 'EEZ catch', 'Cumulative EEZ catch' )
     
     write.csv(Preseason_table, file=paste0(getwd(),'/',stock,'/',y_obj,'_tier_3_preseason_table.csv'))
-    write.csv(Preseason_SDC, file=paste0(getwd(),'/',stock,'/',y_obj,'_tier_3_preseason_SDC.csv'))
+    write.csv(Preseason_SDC, file=paste0(getwd(),'/',stock,'/',y_obj,'_tier_3_preseason_SDC.csv'), row.names = F)
     
   }
   #Postseason calculations
@@ -448,8 +651,8 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
     
     #Determine OFL
     catch_lag <- nrow(Postseason_table)
-    OFL <- max(Postseason_table$C_EEZ[(nrow(Postseason_table)-(catch_lag-1)):nrow(Postseason_table)])*gen_lag
-    
+    # OFL <- max(Postseason_table$C_EEZ[(nrow(Postseason_table)-(catch_lag-1)):nrow(Postseason_table)])*gen_lag
+    OFL <- max(rollsum(x=Postseason_table$C_EEZ, k=gen_lag))
     #Determine ACL/ABC
     ABC <- vector(length=length(buffer))
     ACL <- vector(length=length(buffer))
@@ -457,7 +660,7 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
       ABC[i] <- OFL*buffer[i]
       ACL[i] <- ABC[i]
     }
-    
+
     #ABC Exceeded
     ABC_exceed <- vector(length=length(buffer))
     Cum_Catch <- Postseason_table$Cum_Catch[Postseason_table$Year==y_obj]
@@ -468,6 +671,7 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
         ABC_exceed[i] <- 'NO'
       }
     }
+    
     
     #Write to csv
     Postseason_SDC <- data.frame(cbind(buffer, rep(OFL, length(buffer)), ABC, rep(Cum_Catch, length(buffer)), ABC_exceed))
@@ -491,3 +695,11 @@ Tier_3_fun <- function(C_total , C_EEZ, years, catch_lag, buffer,
   }
   return(return_list)
 }
+
+
+
+
+
+
+
+

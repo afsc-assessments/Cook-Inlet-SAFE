@@ -10,6 +10,7 @@
 library(forecast)
 library(car)
 library(boot)
+library(zoo)
 source('Cook_Inlet_functions.R')
 
 #Load Data
@@ -18,7 +19,7 @@ Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 
 #Function arguments
 gen_lag <- 6
-y_obj <- 2024
+y_obj <- 2025
 preseason <- TRUE
 postseason <- FALSE
 tier_3_buff <- seq(0.1, 0.9, 0.1)
@@ -30,5 +31,8 @@ C_total = rep(NA, length(C_EEZ))
 
 
 #Perform Tier 3 Caclulations
-Tier_3_Table <- Tier_3_fun(C_total=C_total , C_EEZ=C_EEZ, OFL=OFL, years=years,
+Tier_3_Table <- Tier_3_fun(C_total=C_total , C_EEZ=C_EEZ, years=years,
                            gen_lag=gen_lag, y_obj=y_obj, buffer=tier_3_buff, catch_lag = nrow(Table), preseason=preseason, postseason=postseason)
+
+
+Tier_3_Table

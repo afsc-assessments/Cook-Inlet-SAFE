@@ -10,6 +10,9 @@
 library(forecast)
 library(car)
 library(boot)
+library(ggtext)
+library(ggthemes)
+library(tidyverse)
 source('Cook_Inlet_functions.R')
 
 #Load Data
@@ -21,7 +24,7 @@ Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 #Function arguments
 buffer_window <- 10
 gen_lag <- 6
-y_obj <- 2023
+y_obj <- 2024
 preseason <- TRUE
 postseason <- FALSE
 F_state_forecast_method <- 'arima' #naive, or arima
@@ -43,8 +46,11 @@ buffer_ABC <- buffer_fun_ABC(buffer_window=buffer_window, y_obj=y_obj, sib_forec
                              gen_lag=gen_lag, F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method)
 #Perform Tier 1 Calculations
 Tier_1_Table <- Tier_1_fun(y_obj=y_obj, sib_forecast=sib_forecast, 
-                           C_total=C_total, C_EEZ=C_EEZ,Run=Run, Esc=Esc, Esc_goal=Esc_goal, Esc_goal_pre=Esc_goal, years=years, ABC_buffer=buffer_ABC$buffer, preseason = preseason, postseason=postseason, 
-                           gen_lag=gen_lag, F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method)
+                           C_total=C_total, C_EEZ=C_EEZ,Run=Run, Esc=Esc, Esc_goal=Esc_goal, 
+                           Esc_goal_pre=Esc_goal, years=years, ABC_buffer=buffer_ABC$buffer,
+                           preseason = preseason, postseason=postseason, 
+                           gen_lag=gen_lag, F_state_forecast_method=F_state_forecast_method, 
+                           run_forecast_method=run_forecast_method,sib_forecast_full = sib_forecast)
 #Perform Tier 3 Caclulations
 Tier_3_Table <- Tier_3_fun(C_total=C_total , C_EEZ=C_EEZ, years=years,
                            gen_lag=gen_lag, y_obj=y_obj, buffer=tier_3_buff, catch_lag = nrow(Table), preseason=preseason, postseason=postseason)

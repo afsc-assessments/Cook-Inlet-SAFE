@@ -10,6 +10,7 @@
 library(forecast)
 library(car)
 library(boot)
+library(zoo)
 source('Cook_Inlet_functions.R')
 
 #1) Even year pinks
@@ -18,11 +19,11 @@ stock <- 'UCI Pink Even'
 Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 
 #Function arguments
-gen_lag <- 1
-y_obj <- 2022
+gen_lag <- 2
+y_obj <- 2024
 preseason <- TRUE
 postseason <- TRUE
-tier_3_buff <- seq(0.1, 0.9, 0.1)
+tier_3_buff <- seq(0, 0.9, 0.1)
 
 #Data inputs
 C_total=Table['Total.Catch']
@@ -39,11 +40,11 @@ stock <- 'UCI Pink Odd'
 Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 
 #Function arguments
-gen_lag <- 1
-y_obj <- 2023
+gen_lag <- 2
+y_obj <- 2025
 preseason <- TRUE
-postseason <- TRUE
-tier_3_buff <- seq(0.1, 0.9, 0.1)
+postseason <- FALSE
+tier_3_buff <- seq(0.1, .9, 0.1)
 
 #Data inputs
 C_total=Table['Total.Catch']
