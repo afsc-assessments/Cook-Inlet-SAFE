@@ -14,6 +14,7 @@ library(tidyverse)
 library(ggthemes)
 library(ggpubr)
 library(ggtext)
+library(Metrics)
 source('Cook_Inlet_functions.R')
 
 #Load Data
@@ -25,7 +26,7 @@ Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 #Function arguments
 buffer_window <- 10
 gen_lag <- 5
-y_obj <- 2024
+y_obj <- 2025
 preseason <- T
 postseason <- F
 F_state_forecast_method <- 'arima' #naive, or arima
@@ -39,12 +40,12 @@ Run=Table['Run']
 Esc=Table['Escapement']
 
 # SMSY
-# Esc_goal = Table$Smsy[Table$Year==max(Table$Year)]
-# Esc_goal_pre = Table$Smsy[Table$Year==max(Table$Year)]
+Esc_goal = Table$Smsy[Table$Year==max(Table$Year)]
+Esc_goal_pre = Table$Smsy[Table$Year==max(Table$Year)]
 
 # Lwr Bound
-Esc_goal = Table$Lower.Bound.of.Goal
-Esc_goal_pre = Table$Lower.Bound.of.Goal[Table$Year==max(Table$Year)]
+# Esc_goal = Table$Lower.Bound.of.Goal
+# Esc_goal_pre = Table$Lower.Bound.of.Goal[Table$Year==max(Table$Year)]
 
 years=Table['Year']
 sib_forecast = Forecast$Kenai.Total.Run.Forecast[Forecast$Year==y_obj]/1000
@@ -77,7 +78,7 @@ Tier_1_Table <- Tier_1_fun(y_obj=y_obj,
                            buffer_ABC = buffer_ABC,#ABC_buffer=0.478, 
                            preseason = preseason, 
                            postseason=postseason, 
-                           plot = F,
+                           plot = T,
                            # run_forecast_method= "arima",
                            gen_lag=gen_lag, 
                            F_state_forecast_method=F_state_forecast_method, 

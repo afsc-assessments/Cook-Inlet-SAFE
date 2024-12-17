@@ -24,6 +24,7 @@ require(tidyverse)
 require(mgcv)
 require(ggthemes)
 library(ggpubr)
+library(LaplacesDemon)
 # require(viridis)
 require(shinystan)
 # require(lubridate)
@@ -134,14 +135,14 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
 traceplot(object = fit, c(
   "alpha_R",
   "beta_R",
-  # "theta",
+  "theta",
   # "mu",
   "sigma",
   "sigma_F"
 ))
   
-
-
+invlogit(-.55)
+invlogit(0)
 # Launch shiny app (Eady way to look at diagnostic plots) ######################
 # shinystan::launch_shinystan(as.shinystan(fit)) # Uncomment to use
 
@@ -181,7 +182,7 @@ plot.df %>%
   ggplot(aes(x = Year, y = Run))+
   geom_point(aes(col = "Run Size"))+
   geom_line(aes(col = "Run Size"))+
-  geom_line(aes(y = median, col = "Median"))+
+  geom_line(aes(y = median, col = "Median Pred"))+
   geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .2)+
   geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .2)+
   scale_fill_colorblind(name = "")+
@@ -224,7 +225,7 @@ plot.F.df %>%
   ggplot(aes(x = Year, y = Fstate))+
   geom_point(aes(col = "Fstate"))+
   geom_line(aes(col = "Fstate"))+
-  geom_line(aes(y = median, col = "Median"))+
+  geom_line(aes(y = median, col = "Median Pred"))+
   geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .2)+
   geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .2)+
   coord_cartesian(ylim = c(0,1))+

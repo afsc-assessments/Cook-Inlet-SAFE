@@ -1,7 +1,7 @@
 # Aaron Lambert NOAA
 # 10/23/2024
 # Upper Cook Inlet SAFE
-# The purpose of this script is to document data wrangling exercise
+# The purpose of this script is to document data wrangling 
 
 
 library(tidyverse)
@@ -9,6 +9,8 @@ library(readxl)
 library(lubridate)
 
 
+
+# 2024 Catch data from AKFIN
 # Read in the catch data
 CIS_Catch_2024 <- read_xlsx(path  = paste0(getwd(),'/','Inseason_Catch/CIS_data_2024_FINAL_20Nov24.xlsx'))
 

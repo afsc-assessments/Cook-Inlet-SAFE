@@ -1,6 +1,7 @@
 // Aaron Lambert - NOAA
 // 9-25-2024
 // Upper Cook Inlet Tier 1 Bayesian Stock  Analysis
+// AR1 for log run size and MA with constant for Fstate
 
 
 

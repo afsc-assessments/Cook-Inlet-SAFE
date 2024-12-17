@@ -138,12 +138,19 @@ Tier_1_fun <- function(C_total ,
         F_stateDF$mean <- c(rep(NA,length(F_state_forecast$fitted)), F_state_forecast_mean)
         F_stateDF$type <- factor(c(rep( "Obs", length(F_state_forecast$fitted)), "ARIMA"))
         
+        Fmape <- round(mape(actual = base_table$F_state[base_table$Year%in%buffer_ABC$yr], 
+                            predicted = buffer_ABC$Preseason_f),3)*100
+        
+        
+        
         #Color blind colors for plotting
         colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
         
         #Years used in assessment
         n_years <- length(base_table$Year)
+        
+        
         
         #GG plot 
         Fstate_plot <- ggplot(F_stateDF, aes(x = Year, y = F_state))+
@@ -154,6 +161,10 @@ Tier_1_fun <- function(C_total ,
           geom_point(aes(y = mean, col = "Pred"), size = 4)+
           geom_point(aes(col = type, size = type))+
           labs(x = "Year", y = bquote("State harvest rate ( "~F[state]~")"))+
+          geom_richtext(aes(x = y_obj-4, y = max(.8, na.rm = T), 
+                            label = paste("MAPE =", Fmape,"%"), 
+                            label.colour = "white"), 
+                        inherit.aes = F)+
           coord_cartesian(ylim=c(0,1),xlim=c(1999, y_obj+1))+
           scale_x_continuous(breaks = seq(from=2000, to = 2030, by = 5))+
           scale_size_manual(guide = "none", values = c(2,2))+
@@ -534,6 +545,8 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   #Compute retrospective preseason ABC (OFL) over the desired time window
   Preseason_OFL <- vector(length=length(Postseason_OFL))
   Preseason_run <- vector(length=length(Postseason_OFL))
+  Preseason_f   <- vector(length=length(Postseason_OFL))
+  
   yr <- vector(length=buffer_window)
   
   for(i in 1:buffer_window){
@@ -542,10 +555,14 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
                             F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method, write=FALSE, plot=FALSE)
     Preseason_OFL[i] <- Preseason$Preseason_Table[,'potential_yield_EEZ_preseason']
     Preseason_run[i] <- Preseason$Preseason_Table[,'run_preseason']
+    Preseason_f[i]   <- Preseason$Preseason_Table[,'F_state preseason']
+    
     yr[i] <- (y_obj - i)
   }
   Preseason_OFL <- rev(Preseason_OFL)
   Preseason_run <- rev(Preseason_run)
+  Preseason_f   <- rev(Preseason_f)
+  
   yr <- rev(yr)
   
   #Log accuracy ratio/MSE for ABC based on
@@ -572,6 +589,7 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   
   return_list$Preseason_run <- Preseason_run
   return_list$Preseason_OFL <- Preseason_OFL
+  return_list$Preseason_f   <- Preseason_f  
   
   return(return_list)
 }

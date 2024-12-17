@@ -26,7 +26,7 @@ Table_chum$Stock <- "Chum"
 Table_chum$EEZ.Catch <- Table_chum$EEZ.Catch/1000
 Table_chum$ABC_2024 <- 110432/1000
 Table_chum$OFLpre_2025 <- 97508/1000
-Table_chum$ABC_2025 <- 82882/1000  
+Table_chum$ABC_2025 <- 78006/1000  
 
 
 Table_Pink_Odd <- read.csv(file=paste0(getwd(),'/','UCI Pink Odd/Table.csv'))
@@ -185,14 +185,14 @@ Catch.trend.plot <- ggplot(masterDF, aes(x = Year, y = EEZ.Catch))+
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-        legend.text = element_text(size = 10),
+        legend.text = element_text(size = 12),
         axis.title = element_text(size = 12),
     axis.text = element_text(size = 12)
     )
 
 
 png(filename = paste0(getwd(),'/Figures/2025 Catch vs ABC all species.png'),
-    width = 625, height = 400)
+    width = 625, height = 700)
 Catch.trend.plot
 dev.off()
 
@@ -395,7 +395,7 @@ png(filename = paste0(getwd(),'/Figures/Chum catch 2024.png'), width = 625,heigh
 ggarrange(catch.chum.plot,cumcatch.chum.plot, labels = c("a","b"))# cumcatch.pink.plot
 dev.off()
 
-# Pink Catch Timseries 
+# Chum Catch Timseries 
 Catch.trend.chum.plot <- ggplot(masterDF[masterDF$Stock == "Chum",],
                                 aes(x = Year, y = EEZ.Catch))+
   geom_line()+
