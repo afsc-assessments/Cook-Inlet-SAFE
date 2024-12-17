@@ -6,57 +6,82 @@
 #(2) producing preseason and postseason management quantities as dictated in the FMP
 #(3) determining appropriate buffers for management quantities 
 
+
 #Load packages
 library(forecast)
 library(car)
 library(boot)
+library(zoo)
+library(tidyverse)
+library(ggthemes)
+library(ggtext)
+library(ggpubr)
+library(Metrics)
 source('Cook_Inlet_functions.R')
 
 #Load Data
 stock <- 'Kasilof Sockeye'
-Data <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Data.csv'))
+# Data <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Data.csv'))
 Forecast <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Forecasts.csv'))
 Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 
 #Function arguments
-ACL_buffer_window <- 10
+buffer_window <- 10
 gen_lag <- 5
-y_obj <- 2023
+y_obj <- 2025
 preseason <- TRUE
-postseason <- TRUE
+postseason <- FALSE
 F_state_forecast_method <- 'arima' #naive, or arima
 run_forecast_method <- 'arima' #sibling or arima
-tier_3_buff <- seq(0.1, 0.9, 0.1)
+# tier_3_buff <- seq(0.1, 0.9, 0.1)
 
 #Data inputs
-C_total=Table['Total.Catch']
-C_EEZ=Table['EEZ.Catch']
-F_EEZ = Table$FEEZ
-MFMT = Table$MFMT
-ACL= Table$ACL
+C_total=Table['Total.Kasilof.R..Catch']
+C_EEZ=Table['Kasilof.R..EEZ.Catch']
 Run=Table['Run']
-Esc=Table['Esc']
-Esc_goal=Table['Esc.Goal']
+Esc=Table['Escapement']
+
+Esc_goal=Table$Lower.Bound.of.Goal
+Esc_goal_pre = Table$Lower.Bound.of.Goal[Table$Year==max(Table$Year)]
+# SMSY
+# Esc_goal = (222000/1000)
+# Esc_goal_pre = (222000/1000)
+#Esc_goal_pre = Esc_goal
 years=Table['Year']
 sib_forecast = Forecast$Run.Forecast[Forecast$Year==y_obj]/1000
+# sib_forecast_full = Forecast
+sib_forecast_full <- Forecast$Run.Forecast[Forecast$Year<=y_obj]/1000
 
-#Calculate ABC/ACL Buffers
-#Now execute the buffer function to emprically determine the buffer based on retrospective skill or
-#1) ABC
-buffer_ABC <- buffer_fun_ABC(ACL_buffer_window=ACL_buffer_window, y_obj=y_obj, sib_forecast=sib_forecast,
-                             C_total=C_total, C_EEZ=C_EEZ,F_EEZ = F_EEZ, MFMT = MFMT,
-                             ACL= ACL,Run=Run, Esc=Esc, Esc_goal=Esc_goal, years=years, 
-                             gen_lag=gen_lag, F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method)
-#2) ACL
-buffer_ACL <- buffer_fun_ACL(ACL_buffer_window=ACL_buffer_window, y_obj=y_obj, sib_forecast=sib_forecast,
-                             C_total=C_total, C_EEZ=C_EEZ,F_EEZ = F_EEZ, MFMT = MFMT,
-                             ACL= ACL,Run=Run, Esc=Esc, Esc_goal=Esc_goal, years=years, 
-                             gen_lag=gen_lag, F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method)
+#Calculate OFL to ABC Buffer
+buffer_ABC <- buffer_fun_ABC(buffer_window=buffer_window, 
+                             y_obj=y_obj, #+1 if creating comparison plots
+                             sib_forecast=sib_forecast,
+                             C_total=C_total,
+                             C_EEZ=C_EEZ,
+                             Run=Run, Esc=Esc, 
+                             Esc_goal=Esc_goal_pre, 
+                             years=years, 
+                             gen_lag=gen_lag, 
+                             F_state_forecast_method=F_state_forecast_method, 
+                             run_forecast_method='arima')
+
 #Perform Tier 1 Calculations
-Tier_1_Table <- Tier_1_fun(y_obj=y_obj, sib_forecast=sib_forecast, 
-                           C_total=C_total, C_EEZ=C_EEZ,F_EEZ = F_EEZ, MFMT = MFMT,
-                           ACL= ACL,Run=Run, Esc=Esc, Esc_goal=Esc_goal, years=years, ABC_buffer=buffer_ABC$buffer,ACL_buffer=buffer_ACL$buffer, preseason = preseason, postseason=postseason, 
-                           gen_lag=gen_lag, F_state_forecast_method=F_state_forecast_method, run_forecast_method=run_forecast_method)
-#Perform Tier 3 Caclulations
-Tier_3_Table <- Tier_3_fun(C_total=C_total , C_EEZ=C_EEZ, OFL=OFL, years=years,
-                           gen_lag=gen_lag, y_obj=y_obj, buffer=tier_3_buff, catch_lag = nrow(Table), preseason=preseason, postseason=postseason)
+Tier_1_Table <- Tier_1_fun(y_obj=y_obj, 
+                           sib_forecast=sib_forecast, 
+                           C_total=C_total, 
+                           C_EEZ=C_EEZ,Run=Run, 
+                           Esc=Esc, 
+                           Esc_goal=Esc_goal, 
+                           Esc_goal_pre=Esc_goal_pre, 
+                           years=years, 
+                           ABC_buffer=buffer_ABC$buffer,
+                           buffer_ABC = buffer_ABC,
+                           preseason = preseason, 
+                           postseason=postseason, 
+                           gen_lag=gen_lag, 
+                           F_state_forecast_method=F_state_forecast_method, 
+                           run_forecast_method=run_forecast_method,
+                           sib_forecast_full = sib_forecast_full)
+
+
+
