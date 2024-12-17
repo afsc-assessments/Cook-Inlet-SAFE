@@ -1,4 +1,4 @@
-"","Year","Run","Esc","C_total","C_EEZ","Esc_goal","C_state","F_state","F_bar_state","Potential_Yield_EEZ","F_EEZ","MFMT","MSST","Cum_Esc","Overfished","Overfishing","ACL","Cum_Catch","ACL_exceeded"
+"","Year","Run","Esc","C_total","C_EEZ","Esc_goal","C_state","F_state","F_bar_state","Potential_Yield_EEZ","F_EEZ","MFMT","MSST","Cum_Esc","Overfished","Overfishing","OFL_post","Cum_Catch","OFL_exceeded"
 "1",1999,265287,7583,257704,29177,20300,228527,0.861433089446524,NA,16460,NA,NA,NA,NA,NA,NA,NA,NA,NA
 "2",2000,485811,41823,443988,68810,20300,375178,0.772271521229449,NA,90333,NA,NA,NA,NA,NA,NA,NA,NA,NA
 "3",2001,381499,60514,320985,19384,20300,301601,0.790568258370271,NA,59598,NA,NA,NA,NA,NA,NA,NA,NA,NA
