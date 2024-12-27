@@ -47,8 +47,8 @@ years=Table['Year']
 # Esc_goal_pre = Table$Lower.Bound.of.Goal[Table$Year==max(Table$Year)]
 
 # Esc goal using SMSY
-# Esc_goal = (222000/1000)
-# Esc_goal_pre = (222000/1000)
+Esc_goal = (222000/1000)
+Esc_goal_pre = (222000/1000)
 
 # State forecast for comparison using MAPE
 sib_forecast = Forecast$Run.Forecast[Forecast$Year==y_obj]/1000

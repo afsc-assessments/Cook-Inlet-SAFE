@@ -35,8 +35,8 @@ run_forecast_method <- 'arima' #sibling or arima
 # tier_3_buff <- seq(0.1, 0.9, 0.1)
 
 # Data inputs
-C_total=Table['Total.Kenai.R..Catch']
-C_EEZ=Table['Kenai.R..EEZ.Catch']
+C_total=Table['TotalCatch']
+C_EEZ=Table['EEZCatch']
 Run=Table['Run']
 Esc=Table['Escapement']
 years=Table['Year']
@@ -47,8 +47,8 @@ Esc_goal_pre = Table$Smsy[Table$Year==max(Table$Year)]
 
 # Esc goal using lwr bound
 # Lwr Bound
-# Esc_goal = Table$Lower.Bound.of.Goal
-# Esc_goal_pre = Table$Lower.Bound.of.Goal[Table$Year==max(Table$Year)]
+# Esc_goal = Table$Lower
+# Esc_goal_pre = Table$Lower[Table$Year==max(Table$Year)]
 
 # State forecast for comparison
 sib_forecast = Forecast$Kenai.Total.Run.Forecast[Forecast$Year==y_obj]/1000
@@ -87,3 +87,5 @@ Tier_1_Table <- Tier_1_fun(y_obj=y_obj,
                            F_state_forecast_method=F_state_forecast_method, 
                            run_forecast_method=run_forecast_method,
                            sib_forecast_full = sib_forecast_full)
+
+Tier_1_Table
