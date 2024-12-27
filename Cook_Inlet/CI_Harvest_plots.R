@@ -1022,7 +1022,7 @@ Catch.trend.other.plot <- ggplot(masterDF[masterDF$Stock == "Other Sockeye",],
   theme_classic()+
   scale_color_manual(name = "",
                      values = c(colorBlindBlack8[c(2,4,6)]))+
-  scale_linetype_manual(values = c(2,3,4),
+  scale_linetype_manual(values = c(2,2,2),
                         name = "")+
   scale_shape(name="")+
   coord_cartesian(xlim = c(1999,2025))+
@@ -1046,7 +1046,3 @@ dev.off()
 
 
 
-# Vessels fishing per day
-Catch_2024_master %>% 
-  ggplot(aes(x = OPENER_DATE, y = VESSEL_COUNT, fill = SPECIES))+
-  geom_col()
