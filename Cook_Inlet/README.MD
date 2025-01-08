@@ -13,14 +13,14 @@
 |File|UCI Pink Even| Data for the Tier 3 CI Even-year Aggregate Pink Salmon Stock Complex, as well as figures outputted when running the stock assessment model.|
 |File|UCI Pink Odd| Data for the Tier 3 CI Odd-year Aggregate Pink Salmon Stock Complex, as well as figures outputted when running the stock assessment model.|
 |File|UCI Sockeye| Data for the Tier 3 CI Aggregate "Other" Sockeye Salmon Stock Complex, as well as figures outputted when running the stock assessment model.|
-|R&script|CI_Harvest_plots.R|Script for generating EEZ harvest figures for SAFE report and presentations.|
-|R script|Cook_Inlet_functions.R| Functions for 2025 SAFE Tier 1 and Tier 3 stock assessments, as well as a funtion to calculate the Tier 1 buffers.|
-|R script|Dat_input.R| Script for calculating historic EEZ harvest by species using EEZ harvest proportion estimates from State of Alaska UCI fishing districts.|
-|R script|Data management.R| Script for breaking Kasilof, Kenai Late-Run, and Aggregate Other sockeye TAC out of total sockeye salmon catch.|
-|R script|Kasilof_Sockeye_SAFE_Analysis.R| Script for running the assessment model for the Kasilof sockeye salmon stock.|
-|R script|Kenai_Sockeye_SAFE_Analysis.R| Script for running the assessment model for the Kenai Late Run sockeye salmon stock.|
-|R script|UCI_Chinook_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Chinook salmon stock complex.|
-|R script|UCI_Chum_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Chum salmon stock complex.|
-|R script|UCI_Coho_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Coho salmon stock complex.|
-|R script|UCI_Pink_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Pink salmon stock complex.|
-|R script|UCI_Sockeye_SAFE_Analysis.R| Script for running the assessment model for the Aggregate "Other" Sockeye salmon stock complex.|
+|.R|CI_Harvest_plots.R|Script for generating EEZ harvest figures for SAFE report and presentations.|
+|.R|Cook_Inlet_functions.R| Functions for 2025 SAFE Tier 1 and Tier 3 stock assessments, as well as a funtion to calculate the Tier 1 buffers.|
+|.R|Dat_input.R| Script for calculating historic EEZ harvest by species using EEZ harvest proportion estimates from State of Alaska UCI fishing districts.|
+|.R|Data management.R| Script for breaking Kasilof, Kenai Late-Run, and Aggregate Other sockeye TAC out of total sockeye salmon catch.|
+|.R|Kasilof_Sockeye_SAFE_Analysis.R| Script for running the assessment model for the Kasilof sockeye salmon stock.|
+|.R|Kenai_Sockeye_SAFE_Analysis.R| Script for running the assessment model for the Kenai Late Run sockeye salmon stock.|
+|.R|UCI_Chinook_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Chinook salmon stock complex.|
+|.R|UCI_Chum_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Chum salmon stock complex.|
+|.R|UCI_Coho_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Coho salmon stock complex.|
+|.R|UCI_Pink_SAFE_Analysis.R| Script for running the assessment model for the Aggregate Pink salmon stock complex.|
+|.R|UCI_Sockeye_SAFE_Analysis.R| Script for running the assessment model for the Aggregate "Other" Sockeye salmon stock complex.|
