@@ -13,7 +13,7 @@
 |File|UCI Pink Even| Data for the Tier 3 CI Even-year Aggregate Pink Salmon Stock Complex, as well as figures outputted when running the stock assessment model.|
 |File|UCI Pink Odd| Data for the Tier 3 CI Odd-year Aggregate Pink Salmon Stock Complex, as well as figures outputted when running the stock assessment model.|
 |File|UCI Sockeye| Data for the Tier 3 CI Aggregate "Other" Sockeye Salmon Stock Complex, as well as figures outputted when running the stock assessment model.|
-|R script|CI_Harvest_plots.R|Script for generating EEZ harvest figures for SAFE report and presentations.|
+|R&script|CI_Harvest_plots.R|Script for generating EEZ harvest figures for SAFE report and presentations.|
 |R script|Cook_Inlet_functions.R| Functions for 2025 SAFE Tier 1 and Tier 3 stock assessments, as well as a funtion to calculate the Tier 1 buffers.|
 |R script|Dat_input.R| Script for calculating historic EEZ harvest by species using EEZ harvest proportion estimates from State of Alaska UCI fishing districts.|
 |R script|Data management.R| Script for breaking Kasilof, Kenai Late-Run, and Aggregate Other sockeye TAC out of total sockeye salmon catch.|
