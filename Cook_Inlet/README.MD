@@ -1,5 +1,5 @@
 # Readme for Cook_Inlet Folder
-|Type|Name|Contents|
+|Type     |Name|Contents|
 |---------|----|--------|
 |File|Figures| Figures outputed from CI_Harvest_plots.R|
 |File|Inseason Catch Data| 2024 Catch by species in the CI EEZ|
