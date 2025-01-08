@@ -1,7 +1,6 @@
 # Readme for Cook_Inlet Folder
 |Type     |Name|Contents|
 |---------|----|--------|
-|File|Figures| Figures outputed from CI_Harvest_plots.R|
 |File|Inseason Catch Data| 2024 Catch by species in the CI EEZ|
 |File|Kasilof Sockeye| Data and forecasts for Kasilof Sockeye Salmon Stock, as well as figures outputted when running the stock assessment model.|
 |File|Kenai Sockeye| Data and forecasts for Kenai Late-Run Sockeye Salmon Stock, as well as figures outputted when running the stock assessment model.|
