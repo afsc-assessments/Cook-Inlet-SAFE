@@ -35,7 +35,7 @@ run_forecast_method <- 'arima' #sibling or arima
 # tier_3_buff <- seq(0.1, 0.9, 0.1)
 
 # Data inputs
-C_total=Table['TotalCatch']
+C_total=Table['Total.Catch']
 C_EEZ=Table['EEZCatch']
 Run=Table['Run']
 Esc=Table['Escapement']
