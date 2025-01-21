@@ -579,6 +579,28 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   colnames(buffer_mat) <- c('MSA', 'buffer_factor')
   write.csv(buffer_mat, file=paste0(getwd(),'/',stock,'/',y_obj,'_F_state_forecast=',F_state_forecast_method,'_run_forecast=',run_forecast_method,'ABC_buffer_table.csv'))
   
+  # Plot the predicted OFL vs realized used in buffer calc
+  df <- data.frame("Year" = yr,
+                   "OFLpred" = Preseason_OFL,
+                   "OFL_real" = Postseason_OFL)
+  df$cat <- ifelse(df$OFLpred>df$OFL_real,"Over prediction","Under prediction")
+  
+  err.plot <- df %>% 
+    ggplot( aes(x = Year, y = OFL_real))+
+    geom_point(aes(color = "Observed OFL"), size = 3)+
+    geom_line(aes(y = OFL_real))+
+    geom_point(aes(y = OFLpred, colour = cat), size = 3)+
+    labs(y = "OFL ('000s)")+
+    scale_x_continuous(breaks = c(2015:2024))+
+    scale_color_colorblind(name = "")+
+    theme_clean()+
+    theme(axis.text = element_text(size = 18),
+          axis.title = element_text(size = 18),
+          legend.text = element_text(size = 18),
+          legend.position = "top",
+          plot.background = element_blank(), 
+          legend.background = element_blank())
+  
   #Compile list to return
   return_list <- list()
   return_list$MSA <- MSA
@@ -590,6 +612,8 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   return_list$Preseason_run <- Preseason_run
   return_list$Preseason_OFL <- Preseason_OFL
   return_list$Preseason_f   <- Preseason_f  
+  return_list$Postseason_OFL <-  Postseason_OFL
+  return_list$Err_plot <- err.plot
   
   return(return_list)
 }
