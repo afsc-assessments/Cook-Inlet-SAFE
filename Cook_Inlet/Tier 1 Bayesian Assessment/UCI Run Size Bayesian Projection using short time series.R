@@ -2,9 +2,7 @@
 # Creator: Aaron Lambert - NOAA
 # Date: 9-20-2024
 
-# Version: This version is for the long timeseries PF and Fstate predicted from
-#          distribution parameterized by historical observations.
-
+# Version: For running the short time series and using ARIMA models for projecting Fstate
 # Purpose: To generate an AR1 PF and calculate ABC, Fstate, OFL, MFMT
 
 # 1) Read in Data
@@ -56,14 +54,13 @@ dir.stan <- file.path(wd,"stan")
 
 
 ######### Import Data ###############
-stock <- 'Kenai Sockeye'
+stock <- 'Kasilof Sockeye'
 # Data <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Data.csv'))
 Forecast <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Forecasts.csv'))
-# Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
-Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Total Run Size Long.csv'))
+Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 
 # Control Section ##############################################################
-model.version = "AR1_beta_long"
+model.version = "AR1_logit"
 
 # MCMC Parameters
 n.chains = 4
@@ -72,77 +69,56 @@ n.thin = 2
 
 # Year projection is made
 myYear <- 2025
-start.year <- 1979
+
 #SMSY point for Kenai
-Esc_goal_pre = (1212000/1000)
+# Esc_goal_pre = (1212000/1000)
 
 # Smsy Escapement goal for Kasilof
-# Esc_goal_pre = (222000/1000)
+Esc_goal_pre = (222000/1000)
 # Data processing
 
+# Year Used
+years <- Table$Year[Table$Year < myYear]
+n.years <- length(years)
+
+# Realized past run sizes
+runsize <- Table$Run[Table$Year < myYear]
 
 # Fstate
 # Kenai
-Table$C_state <- Table$Total.Catch- Table$EEZCatch
-Table$F_state <- Table$C_state/(Table$Run)
-
-#Kasilof
-# Table$C_state <- Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch
+# Table$C_state <- Table$Total.Kenai.R..Catch - Table$Kenai.R..EEZ.Catch
 # Table$F_state <- Table$C_state/Table$Run
+#Kasilof
+Table$C_state <- Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch
+Table$F_state <- Table$C_state/Table$Run
 
-estBetaParams <- function(mu, var) {
-  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
-  beta <- alpha * (1 / mu - 1)
-  return(params = list(alpha = alpha, beta = beta))
-}
-params <-estBetaParams(mu=mean(Table$F_state,na.rm = T), var = sd(Table$F_state,na.rm = T)^2)
-
-A <- params$alpha
-B <- params$beta
-
-# Year Used
-years <- Table$Year[Table$Year < myYear & 
-                      Table$Year>=start.year]
-n.years <- length(years)
-# years.F <- Table$Year[Table$Year<myYear &
-#                           Table$Year>=1999]
-# n.years.F <-length(years.F)
-
-# Realized past run sizes
-runsize <- Table$Run[Table$Year < myYear &
-                       Table$Year>= start.year]
-
-# F_state <- Table$F_state[Table$Year < myYear&
-#                            Table$Year>=1999]
+F_state <- Table$F_state[Table$Year < myYear]
 
 # Inits list
-# inits <-function(){
-#   #   
-#     list("alpha_R" = runif(1,0,20),
-#          "beta_R" = runif(1,-2,2),
-#          "theta" = runif(1,-1,1),
-#          "mu" = runif(1,-1,1),
-#          "sigma" = runif(1,0,5),
-#          "sigma_F"=runif(1,0,5),
-#          "Fstate_hat_logit" = 1
-#          
-# 
-#     )
-#   }
-#   
-#   inits_ll <- list(inits(), inits(), inits(), inits())
+inits <-function(){
+  #   
+    list("alpha_R" = runif(1,0,20),
+         "beta_R" = runif(1,-2,2),
+         "theta" = runif(1,-1,1),
+         "mu" = runif(1,-1,1),
+         "sigma" = runif(1,0,5),
+         "sigma_F"=runif(1,0,5)
+         
+
+    )
+  }
+  
+  inits_ll <- list(inits(), inits(), inits(), inits())
 
 # Call the stan model
 fit <- stan(file = file.path(dir.stan,paste("UCI_",
                                             model.version ,
                                             ".stan", 
                                             sep = "")), 
-            data = list(n_years = n.years,
-                        A=A,
-                        B=B,
-                        # n_years_F = n.years.F,
-                        run_hist = runsize),
-            # init = inits_ll,
+            data = list(n_years = n.years, 
+                        run_hist = runsize,
+                        F_state_hist = F_state),
+            init = inits_ll,
             chains = n.chains,
             iter = n.iter, 
             thin = n.thin, 
@@ -159,10 +135,10 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
 traceplot(object = fit, c(
   "alpha_R",
   "beta_R",
-  "Fstate"
+  "theta",
   # "mu",
-  # "sigma",
-  # "sigma_F"
+  "sigma",
+  "sigma_F"
 ))
   
 invlogit(-.55)
@@ -262,8 +238,7 @@ plot.F.df %>%
 
 
 # Calculate the OFL
-# OFL_pre <- (pars$post_curr_predRunsize - Esc_goal_pre ) - (pars$post_curr_predRunsize * pars$post_curr_predFstate)
-OFL_pre <- (pars$post_curr_predRunsize - (Esc_goal_pre*1000) ) - (pars$post_curr_predRunsize * pars$Fstate)
+OFL_pre <- (pars$post_curr_predRunsize - Esc_goal_pre ) - (pars$post_curr_predRunsize * pars$post_curr_predFstate)
 
 # Get the CDF to calculate probabilies for statements
 OFL_cdf <- ecdf(OFL_pre)
@@ -276,114 +251,62 @@ colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 # Densities of posterior current predictions for plotting
 run.df <- data.frame("par" = "RunSize", "value" = pars$post_curr_predRunsize)
 
-# Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
-Fstate.df <- data.frame("par" = "F_state", "value" = pars$Fstate)
+Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
 
 OFLpre.df <- data.frame("par" = "OFLpre", "value" = OFL_pre)
 
-# plot.df <- rbind(run.df, Fstate.df, OFLpre.df)
+plot.df <- rbind(run.df, Fstate.df, OFLpre.df)
 
-run.plot <- ggplot(run.df, aes(x = value/1000))+
+run.plot <- ggplot(run.df, aes(x = value))+
   geom_density(fill = colorBlindBlack8[6], alpha = .7)+
-  xlab("Predicted Run Size (Thousands of Salmon)")+
+  xlab("Predicted Run Size")+
   ylab("Relative probability")+
-  coord_cartesian(xlim = c(0,11000), ylim = c(0,.00035))+
-  theme_classic()+
+  coord_cartesian(xlim = c(0,11000))+
   theme(legend.position = "top",
-        axis.text = element_text(size = 18),
-        axis.title = element_text(size = 18), 
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14), 
         plot.background = element_blank(), 
         panel.border = element_blank(), 
-        legend.background = element_blank() )
-
+        legend.background = element_blank() )+
+  theme_classic()
 
 Fstate.plot <- ggplot(Fstate.df, aes(x = value))+
   geom_density(fill = colorBlindBlack8[7], alpha = .7)+
   xlab("Predicted State Harvest Rate")+
   ylab("Relative probability")+
   coord_cartesian(xlim=c(0,1))+
-  theme_classic()+
   theme(legend.position = "top",
-        axis.text = element_text(size = 18),
-        axis.title = element_text(size = 18), 
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14), 
         plot.background = element_blank(),
         panel.border = element_blank(), 
-        legend.background = element_blank() )
+        legend.background = element_blank() )+
+  theme_classic()
 
-estDensity <- density(OFL_pre)
-
-dense.df <- data.frame(x = estDensity$x,
-                       y = estDensity$y,
-                       cat = ifelse(estDensity$x<=0, "No", "yes"))
-
-abc <- (median(OFL_pre)*(1-OFL_cdf(0)))/1000
-
-abc.line <- data.frame(x1 = abc, x2 = abc, y1 = 0, y2 = max(dense.df$y[dense.df$x>=abc]))
-ofl.line <- data.frame(x1 = median(OFL_pre)/1000, x2 = median(OFL_pre)/1000, y1 = 0, y2 = max(dense.df$y[dense.df$x>=median(OFL_pre)]))
-
-OFLpre.plot <- ggplot(dense.df)+
-  geom_line( aes(x = x/1000, y = y))+
-  geom_ribbon(aes(x = x/1000, 
-                  ymin = 0,
-                  ymax = y, fill = cat))+
-  geom_segment(data = abc.line, aes(x = x1, xend = x2, y = y1, yend = y2, col = "ABC"),linewidth = 1.5)+
-  geom_segment(data = ofl.line, aes(x = x1, xend = x2, y = y1, yend = y2, col = "OFLpre"), linewidth = 1.5)+
-  xlab("OFLpre (Thousands of Salmon)")+
+OFLpre.plot <- ggplot(OFLpre.df, aes(x = value))+
+  geom_density(fill = colorBlindBlack8[8], alpha = .7)+
+  xlab("OFLpre")+
   ylab("Relative probability")+
-  coord_cartesian(xlim=c(min(OFLpre.df$value/1000),3500))+
-  scale_fill_manual(values = colorBlindBlack8[c(1,2)],
-                    name = "Surplus EEZ Yield?")+
-  scale_color_manual(values = colorBlindBlack8[c(3,4)],
-                     name = "SDC")+
-  theme_classic()+
+  coord_cartesian(xlim=c(min(OFLpre.df$value),5000))+
   theme(legend.position = "top",
-        axis.text = element_text(size = 18),
-        axis.title = element_text(size = 18), 
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14), 
         plot.background = element_blank(),
         panel.border = element_blank(), 
-        legend.background = element_blank() )
+        legend.background = element_blank() )+
+  theme_classic()
 
 ggarrange(run.plot,
           Fstate.plot,
           OFLpre.plot, ncol = 1,
-          align = "v", labels = c("a","b","c"), vjust = 0.9)
+          align = "v")
 
-median(pars$Fstate)
+median(pars$post_curr_predFstate)
 median(pars$post_curr_predRunsize)
 median(OFL_pre)
-
-mean(pars$post_curr_predRunsize)
-mean(pars$post_curr_predFstate)
 
 # Credible intervals
 quantile(pars$post_curr_predRunsize, probs = c(0.025, .1,0.25, 0.5, 0.75,.9, 0.975))
 quantile(pars$post_curr_predFstate, probs = c(0.025, .1,0.25, 0.5, 0.75,.9, 0.975))
 quantile(OFL_pre, probs = c(0.025, .1,0.25, 0.5, 0.75,.9, 0.975))
-1-OFL_cdf(0)
-
-OFL_cdf(0)
-median(OFL_pre)*(1-OFL_cdf(0))
-
-OFL_cdf(384233)                   
-
-sd(OFL_pre)/mean(OFL_pre)
-
-abc.df <- data.frame("par" = "ABC",
-           "value" = OFL_pre*(OFL_cdf(384233)))
-
-comb.df <- rbind(OFLpre.df,abc.df)
-
-ggplot(comb.df, aes(x = value, fill = par))+
-  geom_density( alpha = .3)+
-  xlab("OFLpre")+
-  ylab("Relative probability")+
-  geom_vline(xintercept = median(OFL_pre))+
-  geom_vline(xintercept = median(OFL_pre*(1-OFL_cdf(0))))+
-  coord_cartesian(xlim=c(min(OFLpre.df$value),3500000))+
-  theme_classic()+
-  theme(legend.position = "top",
-        axis.text = element_text(size = 18),
-        axis.title = element_text(size = 18), 
-        plot.background = element_blank(),
-        panel.border = element_blank(), 
-        legend.background = element_blank() )
+1-OFL_cdf(3000)

@@ -19,7 +19,7 @@ Table_coho$Stock <- "Coho"
 Table_coho$EEZ.Catch <- Table_coho$EEZ.Catch/1000
 Table_coho$ABC_2024 <- 35769/1000
 Table_coho$OFLpre_2025 <- 67013/1000
-Table_coho$ABC_2025 <- 6701/1000
+Table_coho$ABC_2025 <- 16753/1000
 
 Table_chum <- read.csv(file=paste0(getwd(),'/','UCI Chum/Table.csv'))
 Table_chum$Stock <- "Chum"
@@ -57,7 +57,7 @@ Table_Kasilof <- Table_Kasilof %>%
   rename(EEZ.Catch = Kasilof.R..EEZ.Catch)
 Table_Kasilof$ABC_2024 <- 375512/1000
 Table_Kasilof$OFLpre_2025 <- 664294/1000
-Table_Kasilof$ABC_2025 <- 130701/1000
+Table_Kasilof$ABC_2025 <- 285646/1000
 # Table_Kasilof[nrow(Table_Kasilof)+1,]<-NA
 # Table_Kasilof[nrow(Table_Kasilof), "Year"] <- 2024 #workaround for plotting
 # Table_Kasilof[nrow(Table_Kasilof), "EEZ.Catch"] <- 28900/1000 #workaround for plotting
@@ -66,16 +66,16 @@ Table_Kasilof$Stock <- "Kasilof Sockeye"
 Table_Kenai <- read.csv(file=paste0(getwd(),'/','Kenai Sockeye/Table.csv'))
 # Table_Kenai$Stock <- "Kenai Sockeye"
 Table_Kenai <- Table_Kenai %>% 
-  rename(EEZ.Catch = Kenai.R..EEZ.Catch)
+  rename(EEZ.Catch = EEZCatch)
 Table_Kenai$ABC_2024 <- 431123/1000
 Table_Kenai$OFLpre_2025 <- 514761/1000
-Table_Kenai$ABC_2025 <- 168485/1000
+Table_Kenai$ABC_2025 <- 360332/1000
 # Table_Kenai[nrow(Table_Kenai)+1,]<-NA
 # Table_Kenai[nrow(Table_Kenai), "Year"] <- 2024 #workaround for plotting
 # Table_Kenai[nrow(Table_Kenai), "EEZ.Catch"] <- 211717/1000 #workaround for plotting
 Table_Kenai$Stock <- "Kenai Sockeye"
 
-Table_Chinook <- read.csv(file=paste0(getwd(),'/','All Chinook/Table.csv'))
+Table_Chinook <- read.csv(file=paste0(getwd(),'/','UCI Chinook/Table.csv'))
 Table_Chinook$Stock <- "Chinook"
 Table_Chinook$EEZ.Catch <- Table_Chinook$EEZ.Catch/1000
 Table_Chinook$ABC_2024 <- 270/1000
@@ -83,8 +83,8 @@ Table_Chinook$OFLpre_2025 <- 373/1000
 Table_Chinook$ABC_2025 <- 261/1000
 
 # 2024 Inseason Catch Data
-Catch_2024_master <- read_xlsx(path  = paste0(getwd(),'/','Inseason_Catch/CIS_data_2024_FINAL_20Nov24.xlsx'))
-Catch_2024 <- read.csv( file = paste0(getwd(),"/Inseason_Catch/2024 EEZ Catch.csv"))
+Catch_2024_master <- read_xlsx(path  = paste0(getwd(),'/','Inseason Catch Data/CIS_data_2024_FINAL_20Nov24.xlsx'))
+Catch_2024 <- read.csv( file = paste0(getwd(),"/Inseason Catch Data/2024 EEZ Catch.csv"))
 
 # Convert date to date object
 Catch_2024_master <-  Catch_2024_master %>% 
@@ -169,8 +169,8 @@ Catch.trend.plot <- ggplot(masterDF, aes(x = Year, y = EEZ.Catch))+
              size = 1)+
   theme_classic()+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "SSC Rec. ABC 2025", 
+                 color = "SSC Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -187,11 +187,13 @@ Catch.trend.plot <- ggplot(masterDF, aes(x = Year, y = EEZ.Catch))+
     legend.background = element_blank(),
         legend.text = element_text(size = 12),
         axis.title = element_text(size = 12),
-    axis.text = element_text(size = 12)
+    axis.text = element_text(size = 12),
+    legend.key.width = unit(1.1,"cm")
+  
     )
 
 
-png(filename = paste0(getwd(),'/Figures/2025 Catch vs ABC all species.png'),
+png(filename = paste0(getwd(),'/Figures/2025 with SSC recs Catch vs ABC all species.png'),
     width = 625, height = 700)
 Catch.trend.plot
 dev.off()
@@ -261,10 +263,14 @@ cumcatch.chinook.plot <- Catch_2024 %>%
   # geom_col(aes(fill = SPECIES))+
   geom_line(size = 1.7)+
   geom_hline(aes(yintercept = TAC_2024, col = "TAC 2024"),linetype= 2)+
+  # geom_label(aes(label = paste0("TAC utilized = ",
+  #                              round(Perc_Tac,1),"%"), 
+  #               x = OPENER_DATE[7], 
+  #               y  = TAC_2024*1.05), label.size = 0)+
   geom_label(aes(label = paste0("TAC utilized = ",
-                               round(Perc_Tac,1),"%"), 
-                x = OPENER_DATE[7], 
-                y  = TAC_2024*1.05), label.size = 0)+
+                                round(Perc_Tac,1),"%"), 
+                 x = OPENER_DATE[6], 
+                 y  = TAC_2024*1.1), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (number of fish)")+
@@ -280,10 +286,10 @@ cumcatch.chinook.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
 # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Chinook catch 2024.png'), width = 625,height =500)
@@ -305,8 +311,8 @@ Catch.trend.chinook.plot <- ggplot(masterDF[masterDF$Stock == "Chinook",],
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025*1000, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -321,14 +327,15 @@ Catch.trend.chinook.plot <- ggplot(masterDF[masterDF$Stock == "Chinook",],
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Chinook timeseries 2025.png'),width = 600,
+png(filename = paste0(getwd(),'/Figures/Chinook timeseries 2025.png'),width = 625,
     height = 400)
 Catch.trend.chinook.plot
 dev.off()
@@ -369,7 +376,7 @@ cumcatch.chum.plot <- Catch_2024 %>%
   geom_label(aes(label = paste0("TAC utilized = ",
                                 round(Perc_Tac,1),"%"), 
                  x = OPENER_DATE[7], 
-                 y  = (TAC_2024/1000)*1.05), label.size = 0)+
+                 y  = (TAC_2024/1000)*1.05), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (000's)")+
@@ -385,10 +392,10 @@ cumcatch.chum.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
 # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Chum catch 2024.png'), width = 625,height =500)
@@ -410,8 +417,8 @@ Catch.trend.chum.plot <- ggplot(masterDF[masterDF$Stock == "Chum",],
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -426,14 +433,15 @@ Catch.trend.chum.plot <- ggplot(masterDF[masterDF$Stock == "Chum",],
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Chum timeseries 2025.png'),width = 600,
+png(filename = paste0(getwd(),'/Figures/Chum timeseries 2025.png'),width = 625,
 height = 400)
 Catch.trend.chum.plot
 dev.off()
@@ -474,7 +482,7 @@ cumcatch.coho.plot <- Catch_2024 %>%
   geom_label(aes(label = paste0("TAC utilized = ",
                                 round(Perc_Tac,1),"%"), 
                  x = OPENER_DATE[7], 
-                 y  = (TAC_2024/1000)*1.05), label.size = 0)+
+                 y  = (TAC_2024/1000)*1.05), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (000's)")+
@@ -490,10 +498,10 @@ cumcatch.coho.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
 # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Coho catch 2024.png'), width = 625,height =500)
@@ -515,8 +523,8 @@ Catch.trend.coho.plot <- ggplot(masterDF[masterDF$Stock == "Coho",],
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -531,14 +539,15 @@ Catch.trend.coho.plot <- ggplot(masterDF[masterDF$Stock == "Coho",],
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Coho timeseries 2025.png'),,width = 600,
+png(filename = paste0(getwd(),'/Figures/Coho timeseries 2025.png'),width = 625,
     height = 400)
 Catch.trend.coho.plot
 dev.off()
@@ -582,7 +591,7 @@ cumcatch.pink.plot <- Catch_2024 %>%
   geom_label(aes(label = paste0("TAC utilized = ",
                                 round(Perc_Tac,1),"%"), 
                  x = OPENER_DATE[7], 
-                 y  = (TAC_2024/1000)*1.05), label.size = 0)+
+                 y  = (TAC_2024/1000)*1.05), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (000's)")+
@@ -598,10 +607,10 @@ cumcatch.pink.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
   # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Pink catch 2024.png'), width = 625,height =500)
@@ -623,8 +632,8 @@ Catch.trend.pink.plot <- ggplot(masterDF[masterDF$Stock %in% c("Pink Even","Pink
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -642,11 +651,12 @@ Catch.trend.pink.plot <- ggplot(masterDF[masterDF$Stock %in% c("Pink Even","Pink
     legend.text = element_text(size = 12),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Pink timeseries 2025.png'),width = 600,
+png(filename = paste0(getwd(),'/Figures/Pink timeseries 2025.png'),width = 625,
     height = 400)
 Catch.trend.pink.plot
 dev.off()
@@ -760,7 +770,7 @@ cumcatch.kenai.plot <- Catch_2024 %>%
   geom_label(aes(label = paste0("TAC utilized = ",
                                 round(Perc_Tac,1),"%"), 
                  x = OPENER_DATE[7], 
-                 y  = (TAC_2024/1000)*1.05), label.size = 0)+
+                 y  = (TAC_2024/1000)*1.05), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (000's)")+
@@ -776,17 +786,17 @@ cumcatch.kenai.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
 # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Kenai sockeye catch 2024.png'), width = 625,height =500)
 ggarrange(catch.kenai.plot,cumcatch.kenai.plot, labels = c("a","b"))# cumcatch.pink.plot
 dev.off()
 
-# Kenai Catch Timseries 
+# Kenai Catch Timeseries 
 Catch.trend.kenai.plot <- ggplot(masterDF[masterDF$Stock == "Kenai Sockeye",],
                                 aes(x = Year, y = EEZ.Catch))+
   geom_line()+
@@ -801,8 +811,8 @@ Catch.trend.kenai.plot <- ggplot(masterDF[masterDF$Stock == "Kenai Sockeye",],
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -817,14 +827,15 @@ Catch.trend.kenai.plot <- ggplot(masterDF[masterDF$Stock == "Kenai Sockeye",],
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Kenai Sockeye timeseries 2025.png'),width = 600,
+png(filename = paste0(getwd(),'/Figures/Kenai Sockeye timeseries 2025.png'),width = 625,
     height = 400)
 Catch.trend.kenai.plot
 dev.off()
@@ -868,7 +879,7 @@ cumcatch.kasilof.plot <- Catch_2024 %>%
   geom_label(aes(label = paste0("TAC utilized = ",
                                 round(Perc_Tac,1),"%"), 
                  x = OPENER_DATE[7], 
-                 y  = (TAC_2024/1000)*1.05), label.size = 0)+
+                 y  = (TAC_2024/1000)*1.05), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (000's)")+
@@ -884,10 +895,10 @@ cumcatch.kasilof.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
 # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Kasilof sockeye catch 2024.png'), width = 625,height =500)
@@ -909,8 +920,8 @@ Catch.trend.kasilof.plot <- ggplot(masterDF[masterDF$Stock == "Kasilof Sockeye",
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
@@ -925,14 +936,15 @@ Catch.trend.kasilof.plot <- ggplot(masterDF[masterDF$Stock == "Kasilof Sockeye",
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Kasilof Sockeye timeseries 2025.png'),width = 600,
+png(filename = paste0(getwd(),'/Figures/Kasilof Sockeye timeseries 2025.png'),width = 625,
     height = 400)
 Catch.trend.kasilof.plot
 dev.off()
@@ -975,7 +987,7 @@ cumcatch.other.plot <- Catch_2024 %>%
   geom_label(aes(label = paste0("TAC utilized = ",
                                 round(Perc_Tac,1),"%"), 
                  x = OPENER_DATE[7], 
-                 y  = (TAC_2024/1000)*1.05), label.size = 0)+
+                 y  = (TAC_2024/1000)*1.05), label.size = 0, size = 8)+
   scale_fill_manual(values = colorBlindBlack8[c(1:4,6)],
                     name = "", guide = "none")+
   labs(x = "Opener date", y = "Cumulative EEZ Catch (000's)")+
@@ -991,10 +1003,10 @@ cumcatch.other.plot <- Catch_2024 %>%
         panel.grid.major.y = element_line(linetype = 3, size = 1),
         # panel.grid.minor = element_blank(),
         # panel. = element_blank(),
-        legend.text = element_text(size = 14),
-        strip.text = element_text(size = 14),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 14))
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16))
 # facet_wrap(~SPECIES, scales = "free_y", nrow = 3)
 
 png(filename = paste0(getwd(),'/Figures/Other sockeye catch 2024.png'), width = 625,height =500)
@@ -1016,13 +1028,13 @@ Catch.trend.other.plot <- ggplot(masterDF[masterDF$Stock == "Other Sockeye",],
                  color = "OFLpre 2025"), 
              size = 1.2)+
   geom_hline(aes(yintercept = ABC_2025, 
-                 linetype = "Recomended ABC 2025", 
-                 color = "Recomended ABC 2025"), 
+                 linetype = "Rec. ABC 2025", 
+                 color = "Rec. ABC 2025"), 
              size = 1.2)+
   theme_classic()+
   scale_color_manual(name = "",
                      values = c(colorBlindBlack8[c(2,4,6)]))+
-  scale_linetype_manual(values = c(2,2,2),
+  scale_linetype_manual(values = c(2,3,4),
                         name = "")+
   scale_shape(name="")+
   coord_cartesian(xlim = c(1999,2025))+
@@ -1032,14 +1044,15 @@ Catch.trend.other.plot <- ggplot(masterDF[masterDF$Stock == "Other Sockeye",],
     axis.text.x = element_text(angle = 90),
     legend.position = "top",
     legend.background = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
     strip.text = element_text(size = 14),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14)
+    axis.text = element_text(size = 14),
+    legend.key.width = unit(1.1,"cm")
   )
 
 
-png(filename = paste0(getwd(),'/Figures/Other Sockeye timeseries 2025.png'),width = 600,
+png(filename = paste0(getwd(),'/Figures/Other Sockeye timeseries 2025.png'),width = 625,
     height = 400)
 Catch.trend.other.plot
 dev.off()

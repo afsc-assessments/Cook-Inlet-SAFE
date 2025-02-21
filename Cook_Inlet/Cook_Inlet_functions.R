@@ -567,6 +567,7 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   
   #Log accuracy ratio/MSE for ABC based on
   LAR <- log((Preseason_OFL+0.00000000000001)/(Postseason_OFL+0.00000000000001))
+  # LAR <- log((Preseason_OFL+1)/(Postseason_OFL+1))
   LAR <- na.omit(is.finite(LAR)*LAR)
   LAR_MSA <- LAR[LAR>0] #Only calculate MSA/buffer based on positve errors (overforecast)
   MSA <- 100*(exp(median(abs(LAR_MSA), na.rm=TRUE))-1) #Gives median unsigned percentage error
@@ -587,9 +588,9 @@ buffer_fun_ABC <- function(buffer_window=10,y_obj=2021, gen_lag, F_state_forecas
   
   err.plot <- df %>% 
     ggplot( aes(x = Year, y = OFL_real))+
-    geom_point(aes(color = "Observed OFL"), size = 3)+
+    geom_point(aes(color = "Observed OFL"), size = 4)+
     geom_line(aes(y = OFL_real))+
-    geom_point(aes(y = OFLpred, colour = cat), size = 3)+
+    geom_point(aes(y = OFLpred, colour = cat), size = 6)+
     labs(y = "OFL ('000s)")+
     scale_x_continuous(breaks = c(2015:2024))+
     scale_color_colorblind(name = "")+

@@ -3,6 +3,7 @@
 # Date: 9-20-2024
 
 # Version: Retrospective testing of Bayesian model to calculate ABC probabilities
+#          for UCI_AR1_beta_long.stan
 
 # Purpose: To generate an AR1 PF and calculate ABC, Fstate, OFL, MFMT
 
@@ -32,7 +33,7 @@ library(Metrics)
 require(tidybayes)
 
 
-# Parralize for optimum model run time (Speeds things up...)
+# Parallelize for optimum model run time (Speeds things up...)
 rstan_options(auto_write = TRUE) 
 mc.cores = parallel::detectCores()
 
@@ -53,40 +54,40 @@ dir.stan <- file.path(wd,"stan")
 
 
 ######### Import Data ###############
-stock <- 'Kasilof Sockeye'
+stock <- 'Kenai Sockeye'
 # Data <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Data.csv'))
 Forecast <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Forecasts.csv'))
-Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
-
+# Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
+Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Total Run Size Long.csv'))
 # Control Section ##############################################################
-model.version = "AR1_MA_PDO"
+model.version <- "AR1_logit_long"
 
 # MCMC Parameters
 n.chains = 4
-n.iter = 5000
+n.iter = 10000
 n.thin = 2
 
-# Year projection is made
-# myYear <- 2024
+# First year to include in PF
+start.year <- 1979
 
-#SMSY point for Kenai
-# Esc_goal_smsy = (1212000/1000)
+#SMSY point for Kenai River Sockeye
+Esc_goal_smsy <- (1212000)
 # Esc_goal_lwr = 
 
 #Kasilof MSMY
-Esc_goal_smsy = (222000/1000)
+# Esc_goal_smsy = (222000/1000)
 # Data processing
 
-# Years used in testing
-testyears <- c(2015:2024)
+# Years used in retro testing
+testyears <- c(1999:2024)
 
-#Kasilof
-Table$Pot_yield_SMSY <- Table$Run - Esc_goal_smsy - (Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch)
-Table$Pot_yield_lwr <- Table$Run - Table$Lower.Bound.of.Goal - (Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch)
+#Kasilof River realized potential yield
+# Table$Pot_yield_SMSY <- Table$Run - Esc_goal_smsy - (Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch)
+# Table$Pot_yield_lwr <- Table$Run - Table$Lower.Bound.of.Goal - (Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch)
 
-#Kenai
-# Table$Pot_yield_SMSY <- Table$Run - Esc_goal_smsy - (Table$Total.Kenai.R..Catch - Table$Kenai.R..EEZ.Catch)
-# Table$Pot_yield_lwr <- Table$Run - Table$Lower.Bound.of.Goal - (Table$Total.Kenai.R..Catch - Table$Kenai.R..EEZ.Catch)
+#Kenai River realized potential yield
+Table$Pot_yield_SMSY <- Table$Run - Esc_goal_smsy - (Table$Total.Catch - Table$EEZCatch)
+Table$Pot_yield_lwr <- Table$Run - Table$Lower - (Table$Total.Catch - Table$EEZCatch)
 
 # Data frame to hold results
 retroDF <- data.frame("Year" = testyears,
@@ -97,6 +98,8 @@ retroDF <- data.frame("Year" = testyears,
                       "median.stateF" = NA,
                       "median.OFLpre.SMSY" = NA,
                       "median.OFLpre.lwr" = NA,
+                      "ABC_Smsy_cumprob" = NA,
+                      "ABC_lwr_cumprob" = NA,
                       "OFL_true_smsy" = Table$Pot_yield_SMSY[Table$Year%in%testyears],
                       "OFL_true_lwr" = Table$Pot_yield_lwr[Table$Year%in%testyears])
 
@@ -104,12 +107,19 @@ retroDF <- data.frame("Year" = testyears,
 plot.list <- list()
 
 # # Fstate Kenai
-# Table$C_state <- Table$Total.Kenai.R..Catch - Table$Kenai.R..EEZ.Catch
-# Table$F_state <- Table$C_state/Table$Run
+Table$C_state <- Table$Total.Catch - Table$EEZCatch
+Table$F_state <- Table$C_state/Table$Run
 
 # Fstate Kasilof
-Table$C_state <- Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch
-Table$F_state <- Table$C_state/Table$Run
+# Table$C_state <- Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch
+# Table$F_state <- Table$C_state/Table$Run
+
+# Function to get beta dist parameters from mean and variance
+estBetaParams <- function(mu, var) {
+  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+  beta <- alpha * (1 / mu - 1)
+  return(params = list(alpha = alpha, beta = beta))
+}
 
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -118,23 +128,31 @@ for(y in testyears){
   
   # y <- 2017
 # Year Used
-years <- Table$Year[Table$Year < y]
+years <- Table$Year[Table$Year < y & 
+                      Table$Year>= start.year]
+
 n.years <- length(years)
 
 # Realized past run sizes
-runsize <- Table$Run[Table$Year < y]
+runsize <- Table$Run[Table$Year < y &
+                       Table$Year >= start.year]
 
 # The predicted years truth for plotting
 real.PF <- Table$Run[Table$Year == y]
 
 # Historic F
-F_state <- Table$F_state[Table$Year < y]
+F_state <- Table$F_state[Table$Year < y &
+                           Table$Year>=1999]
 
 # True F for plotting
 real.F <- Table$F_state[Table$Year == y]
 
-PDO <- lag.PDO.mean$lag.PDO[lag.PDO.mean$Year>1999 &
-                              lag.PDO.mean$Year <= y]
+
+params <-estBetaParams(mu=mean(Table$F_state,na.rm = T), var = sd(Table$F_state,na.rm = T)^2)
+
+A <- params$alpha
+B <- params$beta
+
 # Inits list
 # inits <-function(){
 #   #   
@@ -151,15 +169,16 @@ PDO <- lag.PDO.mean$lag.PDO[lag.PDO.mean$Year>1999 &
 
 # inits_ll <- list(inits(), inits(), inits(), inits())
 
-# Call the stan model
+# Call the Stan model
 fit <- stan(file = file.path(dir.stan,paste("UCI_",
                                             model.version ,
                                             ".stan", 
                                             sep = "")), 
             data = list(n_years = n.years, 
                         run_hist = runsize,
-                        F_state_hist = F_state,
-                        PDO = PDO),
+                        # F_state_hist = F_state,
+                        A = A,
+                        B=B),
             # init = inits_ll,
             chains = n.chains,
             iter = n.iter, 
@@ -168,7 +187,7 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
             # adjust this for treedepth warnings/div chains warnings
             # control = list(max_treedepth = 25, adapt_delta = 0.99),
             verbose = F,
-            save_warmup = T
+            save_warmup = F
             
 )
 
@@ -191,37 +210,52 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
 # Extract parameter estimates for plotting & analysis ##########################
 pars <- rstan::extract(fit)
 
+# Calaculate OFLpre
 OFL_pre_smsy <- (pars$post_curr_predRunsize - Esc_goal_smsy ) - 
-  (pars$post_curr_predRunsize * pars$post_curr_predFstate)
+  (pars$post_curr_predRunsize * pars$Fstate)
 
-OFL_pre_lwr <- (pars$post_curr_predRunsize - Table$Lower.Bound.of.Goal[Table$Year==y] ) - 
-  (pars$post_curr_predRunsize * pars$post_curr_predFstate)
+OFL_pre_lwr <- (pars$post_curr_predRunsize - (Table$Lower[Table$Year==y]) ) - 
+  (pars$post_curr_predRunsize * pars$Fstate)
 
-# OFLpre_point <- median(OFL_pre_smsy)
 
+# Get the CDF to calculate cum prob
+OFL_cdf_smsy <- ecdf(OFL_pre_smsy)
+OFL_cdf_lwr <- ecdf(OFL_pre_lwr)
+
+# Use the cum prob of overfished to set abc
+retroDF$ABC_Smsy_cumprob[retroDF$Year==y] <- round(median(OFL_pre_smsy) * (1-OFL_cdf_smsy(0)))
+retroDF$ABC_lwr_cumprob[retroDF$Year==y] <- round(median(OFL_pre_lwr) * (1-OFL_cdf_lwr(0)))
+
+# Get the OFLpre point value (median of OFLpre dist)
 retroDF$median.OFLpre.SMSY[retroDF$Year == y] <- median(OFL_pre_smsy)
 retroDF$median.OFLpre.lwr[retroDF$Year == y] <- median(OFL_pre_lwr)
+
+# Get the point est of PF and Fstate
 retroDF$median.runsize[retroDF$Year == y] <- median(pars$post_curr_predRunsize)
 retroDF$median.stateF[retroDF$Year == y] <- median(pars$post_curr_predFstate)
 
 # Plots of the PF fit
-# Calulate quantiles for data
+# Calculate quantiles for data
 quant.predRun <- apply(X = exp(pars$ln_predRunsize),
                        MARGIN = 2,
                        FUN = quantile,
                        probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
                        na.rm = T)
 
+# Add to df for plotting
 plot.df <- data.frame(years,
                       runsize,
                       t(quant.predRun),
                       "Obs.")
 
+# Name the columns
 names(plot.df) <- c("Year","Run","low95","low50","median",
                     "up50","up95","cat")
 
+# Get the current years prediction and CI
 curr <- quantile(pars$post_curr_predRunsize,probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
 
+# Put in DF
 curr.df <- data.frame(Year = y,
                       Run =  real.PF,
                       low95 = unname(curr[1]),
@@ -231,6 +265,7 @@ curr.df <- data.frame(Year = y,
                       up95 =  unname(curr[5]),
                       cat = "Curr. Year")
 
+# bind to model fits
 plot.df <- rbind(plot.df, curr.df)
 
 # Plot the run size prediction
@@ -264,64 +299,64 @@ PF.plot <- plot.df %>%
 
 # FSTATE plots ##
 # Calulate quantiles for data
-quant.predF <- apply(X = (pars$pred_Fstate),
-                     MARGIN = 2,
-                     FUN = quantile,
-                     probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
-                     na.rm = T)
+# quant.predF <- apply(X = (pars$pred_Fstate),
+#                      MARGIN = 2,
+#                      FUN = quantile,
+#                      probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
+#                      na.rm = T)
 
-plot.F.df <- data.frame(years,
-                        F_state,
-                        t(quant.predF),
-                        "Obs.")
-
-names(plot.F.df) <- c("Year","Fstate","low95","low50","median",
-                      "up50","up95","cat")
-
-curr.Fstate <- quantile(pars$post_curr_predFstate,
-                        probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-
-curr.F.df <- data.frame(Year = y,
-                        Fstate =  real.F,
-                        low95 = unname(curr.Fstate[1]),
-                        low50 =  unname(curr.Fstate[2]),
-                        median =  unname(curr.Fstate[3]),
-                        up50 =  unname(curr.Fstate[4]),
-                        up95 =  unname(curr.Fstate[5]),
-                        cat = "Curr. Year")
-
-plot.F.df <- rbind(plot.F.df, curr.F.df)
-
-
-Fstate.plot <- plot.F.df %>% 
-  ggplot(aes(x = Year, y = Fstate))+
-  geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .6)+
-  geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .6)+
-  geom_point(aes(col = cat), size = 2)+
-  geom_line(aes(col = cat))+
-  geom_line(aes(y = median, col = "Median"),linewidth = 1.22)+
-  coord_cartesian(ylim = c(0,1))+
-  # scale_fill_colorblind(name="")+
-  scale_color_manual(name="", 
-                     values = colorBlindBlack8[c(1,3,7,7,7)],
-                     breaks = c("Median", "Obs.", "Curr. Year"))+
-  scale_fill_manual(name="", 
-                    values = colorBlindBlack8[c(7,2)],
-                    breaks = c("50% CI", "95% CI"))+
-  ggtitle(label = paste0("Fstate forecast for year=",y))+
-  theme_clean()+
-  theme(legend.position = "top",
-        axis.text = element_text(size = 12),
-        axis.title = element_text(size = 14),
-        plot.background = element_blank(), 
-        legend.background = element_blank()
-  )
+# plot.F.df <- data.frame(years,
+#                         F_state,
+#                         # t(quant.predF),
+#                         "Obs.")
+# 
+# names(plot.F.df) <- c("Year","Fstate","low95","low50","median",
+#                       "up50","up95","cat")
+# 
+# curr.Fstate <- quantile(pars$post_curr_predFstate,
+#                         probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
+# 
+# curr.F.df <- data.frame(Year = y,
+#                         Fstate =  real.F,
+#                         low95 = unname(curr.Fstate[1]),
+#                         low50 =  unname(curr.Fstate[2]),
+#                         median =  unname(curr.Fstate[3]),
+#                         up50 =  unname(curr.Fstate[4]),
+#                         up95 =  unname(curr.Fstate[5]),
+#                         cat = "Curr. Year")
+# 
+# plot.F.df <- rbind(plot.F.df, curr.F.df)
+# 
+# 
+# Fstate.plot <- plot.F.df %>% 
+#   ggplot(aes(x = Year, y = Fstate))+
+#   geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .6)+
+#   geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .6)+
+#   geom_point(aes(col = cat), size = 2)+
+#   geom_line(aes(col = cat))+
+#   geom_line(aes(y = median, col = "Median"),linewidth = 1.22)+
+#   coord_cartesian(ylim = c(0,1))+
+#   # scale_fill_colorblind(name="")+
+#   scale_color_manual(name="", 
+#                      values = colorBlindBlack8[c(1,3,7,7,7)],
+#                      breaks = c("Median", "Obs.", "Curr. Year"))+
+#   scale_fill_manual(name="", 
+#                     values = colorBlindBlack8[c(7,2)],
+#                     breaks = c("50% CI", "95% CI"))+
+#   ggtitle(label = paste0("Fstate forecast for year=",y))+
+#   theme_clean()+
+#   theme(legend.position = "top",
+#         axis.text = element_text(size = 12),
+#         axis.title = element_text(size = 14),
+#         plot.background = element_blank(), 
+#         legend.background = element_blank()
+#   )
 
 
 
 
 plot.list[[paste0("pf_",y)]] <- PF.plot
-plot.list[[paste0("Fstate_",y)]] <- Fstate.plot
+# plot.list[[paste0("Fstate_",y)]] <- Fstate.plot
 
 
 
@@ -329,7 +364,7 @@ print(paste0("Finally done with year = ",y))
 
 } # Close loop
 
-# Join with true run size and state F
+# Join with true run size and Fstate
 retroDF<- left_join(retroDF, Table[c('Year','Run','F_state')])
 
 # Save
@@ -338,14 +373,15 @@ retroDF<- left_join(retroDF, Table[c('Year','Run','F_state')])
 
 # Model comparison ########################################################################
 
-Kenai_MM <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_retro_results.RDS"))
-Kenai_WN <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_WN_retro_results.RDS"))
-Kenai_PDO <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_WN_PDO_retro_results.RDS"))
-Kasilof_MM <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_logit_retro_results.RDS"))
-Kasilof_WN <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_logit_WN_retro_results.RDS"))
-Kasilof_PDO <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_MA_PDO_retro_results.RDS"))
+# Kenai_MM <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_retro_results.RDS"))
+# Kenai_WN <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_WN_retro_results.RDS"))
+# Kenai_PDO <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_WN_PDO_retro_results.RDS"))
+# Kasilof_MM <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_logit_retro_results.RDS"))
+# Kasilof_WN <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_logit_WN_retro_results.RDS"))
+# Kasilof_PDO <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_MA_PDO_retro_results.RDS"))
 
-allStockDF <- rbind(Kenai_WN,Kasilof_MM)
+# Add model runs here to assess against each other
+allStockDF <- rbind(retroDF)
 
 # allStockDF$OFL_true_smsy <- ifelse(allStockDF$OFL_true_smsy<0,0,allStockDF$OFL_true_smsy)
 
@@ -394,6 +430,20 @@ for (b in 1:length(buffer)) {
   if(b==1){finalDF <- tempDF}else{finalDF <- rbind(finalDF, tempDF)}
   
 }
+
+# Calculate the probability of overforecasting
+finalDF$yes_over <- NA
+finalDF$yes_over <- ifelse(finalDF$err_smsy>0,1,0)
+propDF <- finalDF %>% 
+  group_by(buffer) %>% 
+  summarise(sum(yes_over)/length(testyears))
+
+finalDF$cum_prob_err_smsy <- finalDF$ABC_Smsy_cumprob -finalDF$OFL_true_smsy
+finalDF$cum_prob_err_lwr <- finalDF$ABC_lwr_cumprob -finalDF$OFL_true_lwr
+
+finalDF$yes_over_cum_prob_smsy <- ifelse(finalDF$cum_prob_err_smsy>0,1,0)
+
+sum(finalDF$yes_over_cum_prob_smsy)/length(testyears)
 
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "darkgray")
@@ -502,13 +552,13 @@ Kenai_WN$median.OFLpre.SMSY
 
 
 #Log accuracy ratio/MSE for ABC based on
-LAR <- log((Kenai_WN$median.OFLpre.SMSY+0.00000000000001)/(Kenai_WN$OFL_true_smsy+0.00000000000001))
+LAR <- log((retroDF$median.OFLpre.SMSY+0.00000000000001)/(retroDF$OFL_true_smsy+0.00000000000001))
 LAR <- na.omit(is.finite(LAR)*LAR)
 LAR_MSA <- LAR[LAR>0] #Only calculate MSA/buffer based on positve errors (overforecast)
 MSA <- 100*(exp(median(abs(LAR_MSA), na.rm=TRUE))-1) #Gives median unsigned percentage error
 
 #Compute buffer based on MSA
-buffer <- max((100-MSA)/100, 0.1)
+buffer <- min((MSA)/100, 0.9)
 
 # MAPE
 (1/length(retroDF$Year))*sum(abs((retroDF$OFL_true_lwr- retroDF$median.OFLpre.lwr)/retroDF$OFL_true_lwr))
