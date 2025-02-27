@@ -1,6 +1,6 @@
 # Project Name: Upper Cook Inlet Bayesian PF and harvest specs
 # Creator: Aaron Lambert - NOAA
-# Date: 9-20-2024
+# Date: 2-27-2025
 
 # Version: This version is for the long timeseries PF and Fstate predicted from
 #          distribution parameterized by historical observations.
@@ -88,6 +88,7 @@ if(stock == "Kasilof Sockeye"){
 Table$C_state <- Table$Total.Catch- Table$EEZCatch
 Table$F_state <- Table$C_state/(Table$Run)
 
+# Only used on AR1_beta_long stan script.
 estBetaParams <- function(mu, var) {
   alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
   beta <- alpha * (1 / mu - 1)
@@ -99,10 +100,14 @@ params <-estBetaParams(mu=mean(Table$F_state,na.rm = T), var = sd(Table$F_state,
 A <- params$alpha
 B <- params$beta
 
-# Year Used
+# Run size years used
 years <- Table$Year[Table$Year < myYear & 
                       Table$Year>=start.year]
+
+# Number of run size years used
 n.years <- length(years)
+
+# Number of Fstate years used to fit to Beta dist
 years.F <- Table$Year[Table$Year<myYear &
                           Table$Year>=2015]
 n.years.F <-length(years.F)
@@ -111,6 +116,7 @@ n.years.F <-length(years.F)
 runsize <- Table$Run[Table$Year < myYear &
                        Table$Year>= start.year]
 
+# Realized Fstate
 F_state <- Table$F_state[Table$Year < myYear&
                            Table$Year>=2015]
 
@@ -173,22 +179,26 @@ pars <- rstan::extract(fit)
 
 # Look at model fit to data
 
-# Calulate quantiles for data
+# Calculate quantiles for data
 quant.predRun <- apply(X = exp(pars$ln_predRunsize),
                        MARGIN = 2,
                        FUN = quantile,
                        probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
                        na.rm = T)
 
+# Data frame for plotting
 plot.df <- data.frame(years,
                       runsize,
                       t(quant.predRun))
 
+# Name the columns
 names(plot.df) <- c("Year","Run","low95","low50","median",
                     "up50","up95")
 
+# The current year (the one we are predicting)
 curr <- quantile(pars$post_curr_predRunsize,probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
 
+# Data frame for plotting the current year
 curr.df <- data.frame(Year = myYear,
                       Run =  NA,
                       low95 = unname(curr[1]),
@@ -197,6 +207,7 @@ curr.df <- data.frame(Year = myYear,
                       up50 =  unname(curr[4]),
                       up95 =  unname(curr[5]))
 
+# join the data frames
 plot.df <- rbind(plot.df, curr.df)
 
 # Plot the run size prediction
@@ -214,60 +225,15 @@ plot.df %>%
   theme(legend.position = "top",
         plot.background = element_blank())
 
-# FSTATE plots ################################################################
-# Calulate quantiles for data
-# quant.predF <- apply(X = (pars$pred_Fstate),
-#                        MARGIN = 2,
-#                        FUN = quantile,
-#                        probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
-#                        na.rm = T)
-# 
-# plot.F.df <- data.frame(years,
-#                       F_state,
-#                       t(quant.predF))
-# 
-# names(plot.F.df) <- c("Year","Fstate","low95","low50","median",
-#                     "up50","up95")
-# 
-# curr.Fstate <- quantile(pars$post_curr_predFstate,
-#                         probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-# 
-# curr.F.df <- data.frame(Year = myYear,
-#                       Fstate =  NA,
-#                       low95 = unname(curr.Fstate[1]),
-#                       low50 =  unname(curr.Fstate[2]),
-#                       median =  unname(curr.Fstate[3]),
-#                       up50 =  unname(curr.Fstate[4]),
-#                       up95 =  unname(curr.Fstate[5]))
-# 
-# plot.F.df <- rbind(plot.F.df, curr.F.df)
-# 
-# 
-# plot.F.df %>% 
-#   ggplot(aes(x = Year, y = Fstate))+
-#   geom_point(aes(col = "Fstate"))+
-#   geom_line(aes(col = "Fstate"))+
-#   geom_line(aes(y = median, col = "Median Pred"))+
-#   geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .2)+
-#   geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .2)+
-#   coord_cartesian(ylim = c(0,1))+
-#   scale_fill_colorblind(name="")+
-#   scale_color_colorblind(name="")+
-#   theme_clean()+
-#   theme(legend.position = "top",
-#         plot.background = element_blank())
-hist(pars$post_curr_predFstate)
 
-
-# Calculate the OFL
-# OFL_pre <- (pars$post_curr_predRunsize - Esc_goal_pre ) - (pars$post_curr_predRunsize * pars$post_curr_predFstate)
+# Calculate the OFLpre
 OFL_pre <- (pars$post_curr_predRunsize - (Esc_goal_smsy) ) - (pars$post_curr_predRunsize * pars$post_curr_predFstate)
 
-# Get the CDF to calculate probabilies for statements
+# Get the CDF to calculate ABC buffer (cum prob of overfishing)
 OFL_cdf <- ecdf(OFL_pre)
 
 
-# Pallete for plotting
+# Colors for plotting
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
@@ -277,7 +243,7 @@ run.df <- data.frame("par" = "RunSize", "value" = pars$post_curr_predRunsize)
 # Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
 Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
 
-OFLpre.df <- data.frame("par" = "OFLpre", "value" = OFL_pre)
+# OFLpre.df <- data.frame("par" = "OFLpre", "value" = OFL_pre)
 
 # plot.df <- rbind(run.df, Fstate.df, OFLpre.df)
 
@@ -308,24 +274,30 @@ Fstate.plot <- ggplot(Fstate.df, aes(x = value))+
         panel.border = element_blank(), 
         legend.background = element_blank() )
 
+# Calculate density for OFL
 estDensity <- density(OFL_pre)
 
+# Data frame for plotting OFL density
 dense.df <- data.frame(x = estDensity$x,
                        y = estDensity$y,
-                       cat = ifelse(estDensity$x<=0, "No", "yes"))
+                       cat = ifelse(estDensity$x<=0, "No", "yes"))#This is to color the area under the curve below and above 0
 
+# ABC for plotting
 abc <- (median(OFL_pre)*(1-OFL_cdf(0)))/1000
 
+# ABC line
 abc.line <- data.frame(x1 = abc,
                        x2 = abc,
                        y1 = 0, 
                        y2 = max(dense.df$y[dense.df$x>=abc]))
 
+# OFL line
 ofl.line <- data.frame(x1 = median(OFL_pre)/1000, 
                        x2 = median(OFL_pre)/1000, 
                        y1 = 0,
                        y2 = max(dense.df$y[dense.df$x>=median(OFL_pre)]))
 
+# Plot the OFL density
 OFLpre.plot <- ggplot(dense.df)+
   geom_line( aes(x = x/1000, y = y))+
   geom_ribbon(aes(x = x/1000, 
@@ -348,11 +320,14 @@ OFLpre.plot <- ggplot(dense.df)+
         panel.border = element_blank(), 
         legend.background = element_blank() )
 
+# Combine all the plots together
 ggarrange(run.plot,
           Fstate.plot,
           OFLpre.plot, ncol = 1,
           align = "v", labels = c("a","b","c"), vjust = 0.9)
 
+
+# Scratch work ###############################################################
 median(pars$post_curr_predFstate)
 median(pars$post_curr_predRunsize)
 median(OFL_pre)

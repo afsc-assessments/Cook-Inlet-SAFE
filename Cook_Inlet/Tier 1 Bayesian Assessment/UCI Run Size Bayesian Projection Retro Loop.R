@@ -2,10 +2,11 @@
 # Creator: Aaron Lambert - NOAA
 # Date: 9-20-2024
 
-# Version: Retrospective testing of Bayesian model to calculate ABC probabilities
-#          for UCI_AR1_beta_long.stan
+# Version: Retrospective testing of Bayesian model 
 
-# Purpose: To generate an AR1 PF and calculate ABC, Fstate, OFL, MFMT
+# Purpose: To assess the performance of models and look at the probability of 
+#          over fishing given ABC buffers
+
 
 # 1) Read in Data
 # 2) Preprocess Data
@@ -59,7 +60,10 @@ stock <- 'Kasilof Sockeye'
 Forecast <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Forecasts.csv'))
 # Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Total Run Size Long.csv'))
+
 # Control Section ##############################################################
+
+# Model version
 model.version <- "AR1_betaFit_long"
 
 # MCMC Parameters
@@ -70,8 +74,7 @@ n.thin = 2
 # First year to include in PF
 start.year <- 1979
 
-
-# Smsy point est 
+# Smsy reference point 
 if(stock == "Kenai Sockeye"){
 Esc_goal_smsy <- (1212000)
 }
@@ -125,13 +128,18 @@ plot.list <- list()
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
+
+# Retrospective loop over testyears
 for(y in testyears){
   
+  # uncomment to check code for a single year
   # y <- 2016
-# Year Used
+  
+# Years Used in Run size forecast
 years <- Table$Year[Table$Year < y & 
                       Table$Year>= start.year]
 
+# Number of years used in run size forecast
 n.years <- length(years)
 
 # Realized past run sizes
@@ -151,13 +159,13 @@ n.years.F <- length(F_state)
 # True F for plotting
 real.F <- Table$F_state[Table$Year == y]
 
-
+# Only used in certain models (not necessary in future iterations)
 params <-estBetaParams(mu=mean(Table$F_state,na.rm = T), var = sd(Table$F_state,na.rm = T)^2)
 
 A <- params$alpha
 B <- params$beta
 
-# Inits list
+# Inits list (not currently needed)
 # inits <-function(){
 #   #   
 #   list("alpha_R" = runif(1,0,20),
@@ -197,31 +205,18 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
 )
 
 
-# Trace plots to check for convergence parameters of interest
-# traceplot(object = fit, c(
-#   "alpha_R",
-#   "beta_R",
-#   "theta",
-#   "mu",
-#   "sigma",
-#   "sigma_F"
-# ))
-
-
-
-# Launch shiny app (Eady way to look at diagnostic plots) ######################
-# shinystan::launch_shinystan(as.shinystan(fit)) # Uncomment to use
 
 # Extract parameter estimates for plotting & analysis ##########################
 pars <- rstan::extract(fit)
 
-# Calaculate OFLpre
+# Calculate OFLpre
+# USing SMSY
 OFL_pre_smsy <- (pars$post_curr_predRunsize - Esc_goal_smsy ) - 
   (pars$post_curr_predRunsize * pars$post_curr_predFstate)
 
+# Using lower bound
 OFL_pre_lwr <- (pars$post_curr_predRunsize - (Table$Lower[Table$Year==y]) ) - 
   (pars$post_curr_predRunsize * pars$post_curr_predFstate)
-
 
 # Get the CDF to calculate cum prob
 OFL_cdf_smsy <- ecdf(OFL_pre_smsy)
@@ -347,25 +342,30 @@ Fstate.plot <- ggplot(Fstate.df, aes(x = value, ..scaled..))+
         panel.border = element_blank(), 
         legend.background = element_blank() )
 
+
+# get the density for OFL
 estDensity <- density(OFL_pre_smsy)
 
 dense.df <- data.frame(x = estDensity$x,
                        y = estDensity$y,
                        cat = ifelse(estDensity$x<=0, "No", "yes"))
 
+# Calculate ABC
 abc <- (median(OFL_pre_smsy)*(1- OFL_cdf_smsy(0)))/1000
 
+# ABC line for plotting
 abc.line <- data.frame(x1 = abc,
                        x2 = abc,
                        y1 = 0, 
                        y2 = max(dense.df$y[dense.df$x>=abc])*.95)
 
+# Predicted median OFL for plotting
 ofl.line <- data.frame(x1 = median(OFL_pre_smsy)/1000,
                        x2 = median(OFL_pre_smsy)/1000,
                        y1 = 0,
                        y2 = max(dense.df$y[dense.df$x>=median(OFL_pre_smsy)]))
 
-
+# Realized oFL for plotting
 real.ofl.line <- data.frame(x1 = retroDF$OFL_true_smsy[retroDF$Year==y]/1000, 
                             x2 = retroDF$OFL_true_smsy[retroDF$Year==y]/1000, 
                             y1 = 0,
@@ -373,6 +373,7 @@ real.ofl.line <- data.frame(x1 = retroDF$OFL_true_smsy[retroDF$Year==y]/1000,
                                         max(dense.df$y[dense.df$x>=retroDF$OFL_true_smsy[retroDF$Year==y]]),
                                         max(dense.df$y[dense.df$x<=retroDF$OFL_true_smsy[retroDF$Year==y]])))
 
+# Plot the OFL density
 OFLpre.plot <- ggplot(dense.df)+
   geom_line( aes(x = x/1000, y = y))+
   geom_ribbon(aes(x = x/1000, 
@@ -406,33 +407,38 @@ OFLpre.plot <- ggplot(dense.df)+
         legend.key.width = unit(1.1,"cm"),
         legend.background = element_blank() )
 
+# Combine all density plots
 pp <- ggarrange(run.plot,
                 Fstate.plot,
                 OFLpre.plot, ncol = 1,
                 align = "v", labels = c("a","b","c"), vjust = 0.9)
 
+# Annotate so we know which year and model the plots are for
 comb.plot <- annotate_figure(pp, 
                              top = text_grob(paste0(stock," ",y, " Retrospective Plots \n",model.version),
                                              size = 15,
                                              face = "bold"))
 
+# Store plots in the plot list
 plot.list[[paste0("pf_",y)]] <- PF.plot
 plot.list[[paste0("DensPlot_",y)]] <- comb.plot
 
+# Print statement to see how loop is progressing
 print(paste0("Finally done with year = ",y))
 
 } # Close loop
 
-
+# Save plots as PDF
 pdf(file = paste0(getwd(),"/",stock,"/Retro plots_",model.version,".pdf"), 
     width =9, height = 9)
 plot.list
 dev.off()
+
 # Join with true run size and Fstate
 retroDF <- left_join(retroDF, Table[c('Year','Run','F_state')])
 
-# Save
-saveRDS(object = retroDF, file = paste0(getwd(),"/",stock,"/",model.version,"_retro_results_24Feb2025.RDS"))
+# Save Output to compare with other models/year range runs below
+# saveRDS(object = retroDF, file = paste0(getwd(),"/",stock,"/",model.version,"_retro_results_24Feb2025.RDS"))
 
 # Model comparison ########################################################################
 
@@ -448,8 +454,7 @@ Kasilof_bf <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_betaFit_long_r
 # Add model runs here to assess against each other
 allStockDF <- rbind(Kenai_b, Kenai_bf, Kasilof_b, Kasilof_bf)
 
-# allStockDF$OFL_true_smsy <- ifelse(allStockDF$OFL_true_smsy<0,0,allStockDF$OFL_true_smsy)
-
+# Plot showing MAPE of models 
 allStockDF %>% 
   group_by(Stock,Model) %>% 
   summarise(Run_MAPE = mape(predicted = median.runsize, actual = Run),
@@ -507,25 +512,25 @@ allStockDF %>%
 # propDF <- finalDF %>% 
 #   group_by(buffer,Stock) %>% 
 #   summarise(sum(yes_over)/length(testyears))
+
+# The ABC error 
 allStockDF$smsy_err <- allStockDF$ABC_Smsy_cumprob - allStockDF$OFL_true_smsy
 allStockDF$lwr_err <- allStockDF$ABC_lwr_cumprob - allStockDF$OFL_true_lwr
 
+# Record if error is over or under to calculate the prob of overfishing given an ABC
 allStockDF$yes_over_smsy <- ifelse(allStockDF$smsy_err>0,1,0)
 allStockDF$yes_over_lwr <- ifelse(allStockDF$lwr_err>0,1,0)
 
-
-
+# Table of probability of overfishing given ABC
 allStockDF %>% 
   group_by(Stock, Model) %>% 
   summarise("Prob_smsy" = sum(yes_over_smsy)/length(yes_over_smsy),
             "Prob_lwr" = sum(yes_over_lwr)/length(yes_over_lwr))
 
 
-colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                       "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "darkgray")
+# png(filename = paste0(getwd(),"/Figures/2025 OFL vs OFLpred Bayesian.png"))
 
-png(filename = paste0(getwd(),"/Figures/2025 OFL vs OFLpred Bayesian.png"))
-
+# Plot OFL verse OFLpre 
 allStockDF %>% 
   ggplot(aes(x = Year, y = OFL_true_smsy))+
   geom_col(aes(fill = "Obs"))+
@@ -547,6 +552,7 @@ allStockDF %>%
         axis.text.x = element_text(angle=90))
 dev.off()
 
+# Scratch ######################################################################
 # allStockDF %>% 
 #   ggplot(aes(x = Year, y = Run))+
 #   geom_col(aes(fill = "Obs"))+
@@ -609,6 +615,7 @@ dev.off()
 # plot.list
 # 
 # dev.off()
+
 # Probability of over forecasting
 tt <- finalDF %>% 
   group_by(Stock,buffer,Year) %>% 
