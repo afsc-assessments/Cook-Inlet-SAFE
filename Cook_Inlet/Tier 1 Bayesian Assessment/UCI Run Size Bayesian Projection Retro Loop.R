@@ -54,13 +54,13 @@ dir.stan <- file.path(wd,"stan")
 
 
 ######### Import Data ###############
-stock <- 'Kenai Sockeye'
+stock <- 'Kasilof Sockeye'
 # Data <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Data.csv'))
 Forecast <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Forecasts.csv'))
 # Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Total Run Size Long.csv'))
 # Control Section ##############################################################
-model.version <- "AR1_logit_long"
+model.version <- "AR1_betaFit_long"
 
 # MCMC Parameters
 n.chains = 4
@@ -70,24 +70,36 @@ n.thin = 2
 # First year to include in PF
 start.year <- 1979
 
-#SMSY point for Kenai River Sockeye
-Esc_goal_smsy <- (1212000)
-# Esc_goal_lwr = 
 
-#Kasilof MSMY
-# Esc_goal_smsy = (222000/1000)
-# Data processing
+# Smsy point est 
+if(stock == "Kenai Sockeye"){
+Esc_goal_smsy <- (1212000)
+}
+
+if(stock == "Kasilof Sockeye"){
+Esc_goal_smsy = (222000)
+}
+
+# Data processing ############################################################
 
 # Years used in retro testing
 testyears <- c(1999:2024)
 
-#Kasilof River realized potential yield
-# Table$Pot_yield_SMSY <- Table$Run - Esc_goal_smsy - (Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch)
-# Table$Pot_yield_lwr <- Table$Run - Table$Lower.Bound.of.Goal - (Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch)
-
-#Kenai River realized potential yield
+# Realized potential yield
 Table$Pot_yield_SMSY <- Table$Run - Esc_goal_smsy - (Table$Total.Catch - Table$EEZCatch)
 Table$Pot_yield_lwr <- Table$Run - Table$Lower - (Table$Total.Catch - Table$EEZCatch)
+
+# # Fstate
+Table$C_state <- Table$Total.Catch - Table$EEZCatch
+Table$F_state <- Table$C_state/Table$Run
+
+# Function to get beta dist parameters from mean and variance
+estBetaParams <- function(mu, var) {
+  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+  beta <- alpha * (1 / mu - 1)
+  return(params = list(alpha = alpha, beta = beta))
+  
+}
 
 # Data frame to hold results
 retroDF <- data.frame("Year" = testyears,
@@ -98,35 +110,24 @@ retroDF <- data.frame("Year" = testyears,
                       "median.stateF" = NA,
                       "median.OFLpre.SMSY" = NA,
                       "median.OFLpre.lwr" = NA,
+                      "Buff_smsy"= NA,
+                      "Buff_lwr" = NA,
                       "ABC_Smsy_cumprob" = NA,
                       "ABC_lwr_cumprob" = NA,
                       "OFL_true_smsy" = Table$Pot_yield_SMSY[Table$Year%in%testyears],
                       "OFL_true_lwr" = Table$Pot_yield_lwr[Table$Year%in%testyears])
 
+
 # List to hold plots
 plot.list <- list()
 
-# # Fstate Kenai
-Table$C_state <- Table$Total.Catch - Table$EEZCatch
-Table$F_state <- Table$C_state/Table$Run
-
-# Fstate Kasilof
-# Table$C_state <- Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch
-# Table$F_state <- Table$C_state/Table$Run
-
-# Function to get beta dist parameters from mean and variance
-estBetaParams <- function(mu, var) {
-  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
-  beta <- alpha * (1 / mu - 1)
-  return(params = list(alpha = alpha, beta = beta))
-}
-
+# Color blind palette for plotting
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 for(y in testyears){
   
-  # y <- 2017
+  y <- 2016
 # Year Used
 years <- Table$Year[Table$Year < y & 
                       Table$Year>= start.year]
@@ -141,8 +142,11 @@ runsize <- Table$Run[Table$Year < y &
 real.PF <- Table$Run[Table$Year == y]
 
 # Historic F
-F_state <- Table$F_state[Table$Year < y &
+F_state <- Table$F_state[Table$Year < max(Table$Year) &
                            Table$Year>=1999]
+
+# Number of years Fstate
+n.years.F <- length(F_state)
 
 # True F for plotting
 real.F <- Table$F_state[Table$Year == y]
@@ -175,8 +179,9 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
                                             ".stan", 
                                             sep = "")), 
             data = list(n_years = n.years, 
+                        n_years_F = n.years.F,
                         run_hist = runsize,
-                        # F_state_hist = F_state,
+                        Fstate = F_state,
                         A = A,
                         B=B),
             # init = inits_ll,
@@ -212,15 +217,19 @@ pars <- rstan::extract(fit)
 
 # Calaculate OFLpre
 OFL_pre_smsy <- (pars$post_curr_predRunsize - Esc_goal_smsy ) - 
-  (pars$post_curr_predRunsize * pars$Fstate)
+  (pars$post_curr_predRunsize * pars$post_curr_predFstate)
 
 OFL_pre_lwr <- (pars$post_curr_predRunsize - (Table$Lower[Table$Year==y]) ) - 
-  (pars$post_curr_predRunsize * pars$Fstate)
+  (pars$post_curr_predRunsize * pars$post_curr_predFstate)
 
 
 # Get the CDF to calculate cum prob
 OFL_cdf_smsy <- ecdf(OFL_pre_smsy)
 OFL_cdf_lwr <- ecdf(OFL_pre_lwr)
+
+# Record the buffer 
+retroDF$Buff_smsy[retroDF$Year==y] <- (OFL_cdf_smsy(0))
+retroDF$Buff_lwr[retroDF$Year==y] <- (OFL_cdf_lwr(0))
 
 # Use the cum prob of overfished to set abc
 retroDF$ABC_Smsy_cumprob[retroDF$Year==y] <- round(median(OFL_pre_smsy) * (1-OFL_cdf_smsy(0)))
@@ -297,91 +306,147 @@ PF.plot <- plot.df %>%
 
 
 
-# FSTATE plots ##
-# Calulate quantiles for data
-# quant.predF <- apply(X = (pars$pred_Fstate),
-#                      MARGIN = 2,
-#                      FUN = quantile,
-#                      probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
-#                      na.rm = T)
+# Densities of posterior current predictions for plotting
+run.df <- data.frame("par" = "RunSize", "value" = pars$post_curr_predRunsize)
 
-# plot.F.df <- data.frame(years,
-#                         F_state,
-#                         # t(quant.predF),
-#                         "Obs.")
-# 
-# names(plot.F.df) <- c("Year","Fstate","low95","low50","median",
-#                       "up50","up95","cat")
-# 
-# curr.Fstate <- quantile(pars$post_curr_predFstate,
-#                         probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-# 
-# curr.F.df <- data.frame(Year = y,
-#                         Fstate =  real.F,
-#                         low95 = unname(curr.Fstate[1]),
-#                         low50 =  unname(curr.Fstate[2]),
-#                         median =  unname(curr.Fstate[3]),
-#                         up50 =  unname(curr.Fstate[4]),
-#                         up95 =  unname(curr.Fstate[5]),
-#                         cat = "Curr. Year")
-# 
-# plot.F.df <- rbind(plot.F.df, curr.F.df)
-# 
-# 
-# Fstate.plot <- plot.F.df %>% 
-#   ggplot(aes(x = Year, y = Fstate))+
-#   geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .6)+
-#   geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .6)+
-#   geom_point(aes(col = cat), size = 2)+
-#   geom_line(aes(col = cat))+
-#   geom_line(aes(y = median, col = "Median"),linewidth = 1.22)+
-#   coord_cartesian(ylim = c(0,1))+
-#   # scale_fill_colorblind(name="")+
-#   scale_color_manual(name="", 
-#                      values = colorBlindBlack8[c(1,3,7,7,7)],
-#                      breaks = c("Median", "Obs.", "Curr. Year"))+
-#   scale_fill_manual(name="", 
-#                     values = colorBlindBlack8[c(7,2)],
-#                     breaks = c("50% CI", "95% CI"))+
-#   ggtitle(label = paste0("Fstate forecast for year=",y))+
-#   theme_clean()+
-#   theme(legend.position = "top",
-#         axis.text = element_text(size = 12),
-#         axis.title = element_text(size = 14),
-#         plot.background = element_blank(), 
-#         legend.background = element_blank()
-#   )
+# Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
+Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
+
+# OFLpre.df <- data.frame("par" = "OFLpre", "value" = OFL_pre_smsy)
+
+# plot.df <- rbind(run.df, Fstate.df, OFLpre.df)
+
+run.plot <- ggplot(run.df, aes(x = value/1000))+
+  geom_density(fill = colorBlindBlack8[6], alpha = .7)+
+  xlab("Predicted Run Size (Thousands of Salmon)")+
+  ylab("")+
+  coord_cartesian(xlim = c(0,ifelse(stock=="Kasilof Sockeye",3500,12000)))+
+  scale_x_continuous(n.breaks = 10)+
+  # ggtitle(label = paste0("Retrospective plots for year=",y))+
+  theme_classic()+
+  theme(legend.position = "top",
+        axis.text = element_text(size = 18),
+        axis.title = element_text(size = 18), 
+        plot.margin = margin(t = 1, b = 0, l = 1,unit = "cm"),
+        plot.background = element_blank(), 
+        panel.border = element_blank(), 
+        legend.background = element_blank() )
 
 
+Fstate.plot <- ggplot(Fstate.df, aes(x = value, ..scaled..))+
+  geom_density(fill = colorBlindBlack8[7], alpha = .7)+
+  xlab("Predicted State Harvest Rate")+
+  ylab("")+
+  coord_cartesian(xlim=c(0,1))+
+  theme_classic()+
+  theme(legend.position = "top",
+        axis.text = element_text(size = 18),
+        axis.title = element_text(size = 18), 
+        plot.background = element_blank(),
+        plot.margin = margin(t = 1, b = 0, l = 1,unit = "cm"),
+        panel.border = element_blank(), 
+        legend.background = element_blank() )
 
+estDensity <- density(OFL_pre_smsy)
+
+dense.df <- data.frame(x = estDensity$x,
+                       y = estDensity$y,
+                       cat = ifelse(estDensity$x<=0, "No", "yes"))
+
+abc <- (median(OFL_pre_smsy)*(1- OFL_cdf_smsy(0)))/1000
+
+abc.line <- data.frame(x1 = abc,
+                       x2 = abc,
+                       y1 = 0, 
+                       y2 = max(dense.df$y[dense.df$x>=abc])*.95)
+
+ofl.line <- data.frame(x1 = median(OFL_pre_smsy)/1000,
+                       x2 = median(OFL_pre_smsy)/1000,
+                       y1 = 0,
+                       y2 = max(dense.df$y[dense.df$x>=median(OFL_pre_smsy)]))
+
+
+real.ofl.line <- data.frame(x1 = retroDF$OFL_true_smsy[retroDF$Year==y]/1000, 
+                            x2 = retroDF$OFL_true_smsy[retroDF$Year==y]/1000, 
+                            y1 = 0,
+                            y2 = ifelse(retroDF$OFL_true_smsy[retroDF$Year==y]>= dense.df$x[dense.df$y==max(dense.df$y)],
+                                        max(dense.df$y[dense.df$x>=retroDF$OFL_true_smsy[retroDF$Year==y]]),
+                                        max(dense.df$y[dense.df$x<=retroDF$OFL_true_smsy[retroDF$Year==y]])))
+
+OFLpre.plot <- ggplot(dense.df)+
+  geom_line( aes(x = x/1000, y = y))+
+  geom_ribbon(aes(x = x/1000, 
+                  ymin = 0,
+                  ymax = y, fill = cat))+
+  geom_segment(data = abc.line, aes(x = x1, xend = x2, y = y1, yend = y2, col = "ABC"),
+               linewidth = 1.2, 
+               linetype = 3)+
+  geom_segment(data = ofl.line, aes(x = x1, xend = x2, y = y1, yend = y2, col = "OFLpre"),
+               linewidth = 1.2, 
+               linetype = 1)+
+  geom_segment(data = real.ofl.line, aes(x = x1, xend = x2, y = y1, yend = y2, col = "Realized OFLpre"),
+               linetype = 2,
+               linewidth = 1.2)+
+  xlab("OFLpre (Thousands of Salmon)")+
+  ylab("")+
+  # coord_cartesian(xlim=c(-300,1300))+
+  coord_cartesian(xlim = c(ifelse(stock=="Kasilof Sockeye",-300,-500),
+                           ifelse(stock=="Kasilof Sockeye",1200,4000)))+
+  scale_fill_manual(values = colorBlindBlack8[c(1,2)],
+                    name = "Surplus EEZ Yield?")+
+  scale_color_manual(values = colorBlindBlack8[c(3,4,7)],
+                     name = "SDC")+
+  theme_classic()+
+  theme(legend.position = "top",
+        axis.text = element_text(size = 18),
+        axis.title = element_text(size = 18), 
+        plot.margin = margin(t = 1, b = 0, l = 1,unit = "cm"),
+        plot.background = element_blank(),
+        panel.border = element_blank(), 
+        legend.key.width = unit(1.1,"cm"),
+        legend.background = element_blank() )
+
+pp <- ggarrange(run.plot,
+                Fstate.plot,
+                OFLpre.plot, ncol = 1,
+                align = "v", labels = c("a","b","c"), vjust = 0.9)
+
+comb.plot <- annotate_figure(pp, 
+                             top = text_grob(paste0(stock," ",y, " Retrospective Plots \n",model.version),
+                                             size = 15,
+                                             face = "bold"))
 
 plot.list[[paste0("pf_",y)]] <- PF.plot
-# plot.list[[paste0("Fstate_",y)]] <- Fstate.plot
-
-
+plot.list[[paste0("DensPlot_",y)]] <- comb.plot
 
 print(paste0("Finally done with year = ",y))
 
 } # Close loop
 
+
+pdf(file = paste0(getwd(),"/",stock,"/Retro plots_",model.version,".pdf"), 
+    width =9, height = 9)
+plot.list
+dev.off()
 # Join with true run size and Fstate
-retroDF<- left_join(retroDF, Table[c('Year','Run','F_state')])
+retroDF <- left_join(retroDF, Table[c('Year','Run','F_state')])
 
 # Save
-# saveRDS(object = retroDF, file = paste0(getwd(),"/",stock,"/",model.version,"_retro_results.RDS"))
-
+saveRDS(object = retroDF, file = paste0(getwd(),"/",stock,"/",model.version,"_retro_results_24Feb2025.RDS"))
 
 # Model comparison ########################################################################
 
-# Kenai_MM <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_retro_results.RDS"))
-# Kenai_WN <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_WN_retro_results.RDS"))
+Kenai_b <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_beta_long_retro_results_24Feb2025.RDS"))
+Kasilof_b <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_beta_long_retro_results_24Feb2025.RDS"))
+Kenai_bf <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_betaFit_long_retro_results_24Feb2025.RDS"))
+Kasilof_bf <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_betaFit_long_retro_results_24Feb2025.RDS"))
 # Kenai_PDO <- readRDS(file = paste0(getwd(),"/Kenai Sockeye/AR1_logit_WN_PDO_retro_results.RDS"))
 # Kasilof_MM <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_logit_retro_results.RDS"))
 # Kasilof_WN <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_logit_WN_retro_results.RDS"))
 # Kasilof_PDO <- readRDS(file = paste0(getwd(),"/Kasilof Sockeye/AR1_MA_PDO_retro_results.RDS"))
 
 # Add model runs here to assess against each other
-allStockDF <- rbind(retroDF)
+allStockDF <- rbind(Kenai_b, Kenai_bf, Kasilof_b, Kasilof_bf)
 
 # allStockDF$OFL_true_smsy <- ifelse(allStockDF$OFL_true_smsy<0,0,allStockDF$OFL_true_smsy)
 
@@ -391,74 +456,87 @@ allStockDF %>%
             F_MAPE = mape(predicted = median.stateF, actual = F_state)) %>% 
   pivot_longer(cols = c(Run_MAPE,F_MAPE)) %>% 
   ggplot(aes(x = factor(Stock), y = value))+
-    geom_point(aes(col = Model))+
+    geom_point(aes(col = Model),size = 2, position = "Jitter")+
     facet_wrap(~factor(name))
 
 
-# CalculateOFL_true_smsy# Calculate the ABC across a range of buffers
-allStockDF$buffer <- NA
-allStockDF$ABC_lwr <- NA
-allStockDF$ABC_smsy <- NA
-allStockDF$err_lwr <- NA
-allStockDF$err_smsy <- NA
-allStockDF$perc_err_lwr <- NA
-allStockDF$perc_err_smsy <- NA
-
-buffer <- seq(.1,.9,.1)
-
-for (b in 1:length(buffer)) {
-  # b <- 1
-  
-  buff <- buffer[b]
-  
-  tempDF <- allStockDF
-  
-  tempDF$ABC_lwr <- tempDF$median.OFLpre.lwr*(1-buff)
-  
-  tempDF$ABC_smsy <- tempDF$median.OFLpre.SMSY*(1-buff)
-  
-  tempDF$err_lwr <- tempDF$ABC_lwr - tempDF$OFL_true_lwr
-  
-  tempDF$err_smsy <- tempDF$ABC_smsy - tempDF$OFL_true_smsy
-  
-  tempDF$perc_err_lwr <- (tempDF$err_lwr/tempDF$OFL_true_lwr)*100
-  
-  tempDF$perc_err_smsy <- (abs(tempDF$err_smsy)/(abs(tempDF$OFL_true_smsy)))*100
-  
-  tempDF$buffer <- buff*100
-  
-  if(b==1){finalDF <- tempDF}else{finalDF <- rbind(finalDF, tempDF)}
-  
-}
+# # CalculateOFL_true_smsy# Calculate the ABC across a range of buffers
+# allStockDF$buffer <- NA
+# allStockDF$ABC_lwr <- NA
+# allStockDF$ABC_smsy <- NA
+# allStockDF$err_lwr <- NA
+# allStockDF$err_smsy <- NA
+# allStockDF$perc_err_lwr <- NA
+# allStockDF$perc_err_smsy <- NA
+# 
+# buffer <- seq(.1,.9,.1)
+# 
+# for (b in 1:length(buffer)) {
+#   # b <- 1
+#   
+#   buff <- buffer[b]
+#   
+#   tempDF <- allStockDF
+#   
+#   tempDF$ABC_lwr <- tempDF$median.OFLpre.lwr*(1-buff)
+#   
+#   tempDF$ABC_smsy <- tempDF$median.OFLpre.SMSY*(1-buff)
+#   
+#   tempDF$err_lwr <- tempDF$ABC_lwr - tempDF$OFL_true_lwr
+#   
+#   tempDF$err_smsy <- tempDF$ABC_smsy - tempDF$OFL_true_smsy
+#   
+#   tempDF$perc_err_lwr <- (tempDF$err_lwr/tempDF$OFL_true_lwr)*100
+#   
+#   tempDF$perc_err_smsy <- (abs(tempDF$err_smsy)/(abs(tempDF$OFL_true_smsy)))*100
+#   
+#   tempDF$buffer <- buff*100
+#   
+#   if(b==1){finalDF <- tempDF}else{finalDF <- rbind(finalDF, tempDF)}
+#   
+# }
 
 # Calculate the probability of overforecasting
-finalDF$yes_over <- NA
-finalDF$yes_over <- ifelse(finalDF$err_smsy>0,1,0)
-propDF <- finalDF %>% 
-  group_by(buffer) %>% 
-  summarise(sum(yes_over)/length(testyears))
+# finalDF$yes_over <- NA
+# 
+# finalDF %>% 
+#   group_by(Stock) %>% 
+#   mutate(yes_over)
+# 
+# 
+# propDF <- finalDF %>% 
+#   group_by(buffer,Stock) %>% 
+#   summarise(sum(yes_over)/length(testyears))
+allStockDF$smsy_err <- allStockDF$ABC_Smsy_cumprob - allStockDF$OFL_true_smsy
+allStockDF$lwr_err <- allStockDF$ABC_lwr_cumprob - allStockDF$OFL_true_lwr
 
-finalDF$cum_prob_err_smsy <- finalDF$ABC_Smsy_cumprob -finalDF$OFL_true_smsy
-finalDF$cum_prob_err_lwr <- finalDF$ABC_lwr_cumprob -finalDF$OFL_true_lwr
+allStockDF$yes_over_smsy <- ifelse(allStockDF$smsy_err>0,1,0)
+allStockDF$yes_over_lwr <- ifelse(allStockDF$lwr_err>0,1,0)
 
-finalDF$yes_over_cum_prob_smsy <- ifelse(finalDF$cum_prob_err_smsy>0,1,0)
 
-sum(finalDF$yes_over_cum_prob_smsy)/length(testyears)
+
+allStockDF %>% 
+  group_by(Stock, Model) %>% 
+  summarise("Prob_smsy" = sum(yes_over_smsy)/length(yes_over_smsy),
+            "Prob_lwr" = sum(yes_over_lwr)/length(yes_over_lwr))
+
 
 colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
                        "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "darkgray")
 
 png(filename = paste0(getwd(),"/Figures/2025 OFL vs OFLpred Bayesian.png"))
+
 allStockDF %>% 
   ggplot(aes(x = Year, y = OFL_true_smsy))+
   geom_col(aes(fill = "Obs"))+
   geom_point(aes(y = median.OFLpre.SMSY, col = "Median Pred"), size = 2)+
+  geom_line(aes(y = median.OFLpre.SMSY, col = "Median Pred"))+
   scale_fill_manual(values=colorBlindBlack8[1], name = "")+
   scale_color_manual(values=colorBlindBlack8[2], name = "")+
-  scale_x_continuous(breaks = unique(finalDF$Year))+
-  scale_y_continuous(breaks = seq(-200,1000, 200))+
-  facet_wrap(~Stock)+
-  # facet_grid(Stock~Model)+
+  scale_x_continuous(breaks = unique(allStockDF$Year))+
+  # scale_y_continuous(breaks = seq(-200,1000, 200))+
+  # facet_wrap(~Stock)+
+  facet_grid(Stock~Model)+
   labs(y = "OFL (Thousands of sockeye salmon)")+
   theme_clean()+
   theme(plot.background = element_blank(),
@@ -469,58 +547,58 @@ allStockDF %>%
         axis.text.x = element_text(angle=90))
 dev.off()
 
-allStockDF %>% 
-  ggplot(aes(x = Year, y = Run))+
-  geom_col(aes(fill = "Obs"))+
-  geom_point(aes(y = median.runsize, col = "Median Pred"), size = 2)+
-  scale_fill_manual(values=colorBlindBlack8[1], name = "")+
-  scale_color_manual(values=colorBlindBlack8[2], name = "")+
-  scale_x_continuous(breaks = unique(finalDF$Year))+
-  scale_y_continuous(breaks = seq(0,5000, 500))+
-  # facet_wrap(~Model)+
-  facet_grid(Stock~Model)+
-  labs(y = "OFL (Thousands of sockeye salmon)")+
-  theme_clean()+
-  theme(plot.background = element_blank(),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=14),
-        legend.background  = element_blank(),
-        legend.position = "top",
-        axis.text.x = element_text(angle=90))
-
-err.plot <- finalDF %>% 
-  ggplot(aes(x = Year, y = err_smsy, fill = factor(buffer)))+
-  geom_col(position = "dodge")+
-  labs(y = "Error (000's fish)")+
-  scale_fill_manual(name = "", values = colorBlindBlack8,
-                    labels = c("10%", "20%","30%", "40%", "50%","60%", "70%","80%","90%"))+
-  scale_y_continuous(breaks = seq(-2000,500, 200))+
-  scale_x_continuous(breaks = unique(finalDF$Year))+
-  # facet_grid(Stock~Model)+
-  facet_wrap(~Stock)+
-  theme_clean()+
-  theme(plot.background = element_blank(),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=14),
-        legend.position = "right",
-        axis.text.x = element_text(angle=90))
-
-
-perc.err.plot <- finalDF %>% 
-  ggplot(aes(x = Year, y = perc_err_smsy, fill = factor(buffer)))+
-  geom_col(position = "dodge")+
-  labs(y = "Percent Error")+
-  scale_fill_manual(name = "", values = colorBlindBlack8,
-                    labels = c("10%", "20%","30%", "40%", "50%","60%", "70%","80%","90%"))+  scale_y_continuous(breaks = seq(-200,900, 100))+
-  scale_x_continuous(breaks = unique(finalDF$Year))+
-  # facet_grid(Stock~Model)+
-  facet_wrap(~Stock)+
-  theme_clean()+
-  theme(plot.background = element_blank(),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=14),
-        legend.position = "right",
-        axis.text.x = element_text(angle=90))
+# allStockDF %>% 
+#   ggplot(aes(x = Year, y = Run))+
+#   geom_col(aes(fill = "Obs"))+
+#   geom_point(aes(y = median.runsize, col = "Median Pred"), size = 2)+
+#   scale_fill_manual(values=colorBlindBlack8[1], name = "")+
+#   scale_color_manual(values=colorBlindBlack8[2], name = "")+
+#   scale_x_continuous(breaks = unique(finalDF$Year))+
+#   scale_y_continuous(breaks = seq(0,5000, 500))+
+#   # facet_wrap(~Model)+
+#   facet_grid(Stock~Model)+
+#   labs(y = "OFL (Thousands of sockeye salmon)")+
+#   theme_clean()+
+#   theme(plot.background = element_blank(),
+#         axis.text = element_text(size=14),
+#         axis.title = element_text(size=14),
+#         legend.background  = element_blank(),
+#         legend.position = "top",
+#         axis.text.x = element_text(angle=90))
+# 
+# err.plot <- finalDF %>% 
+#   ggplot(aes(x = Year, y = err_smsy, fill = factor(buffer)))+
+#   geom_col(position = "dodge")+
+#   labs(y = "Error (000's fish)")+
+#   scale_fill_manual(name = "", values = colorBlindBlack8,
+#                     labels = c("10%", "20%","30%", "40%", "50%","60%", "70%","80%","90%"))+
+#   scale_y_continuous(breaks = seq(-2000,500, 200))+
+#   scale_x_continuous(breaks = unique(finalDF$Year))+
+#   # facet_grid(Stock~Model)+
+#   facet_wrap(~Stock)+
+#   theme_clean()+
+#   theme(plot.background = element_blank(),
+#         axis.text = element_text(size=14),
+#         axis.title = element_text(size=14),
+#         legend.position = "right",
+#         axis.text.x = element_text(angle=90))
+# 
+# 
+# perc.err.plot <- finalDF %>% 
+#   ggplot(aes(x = Year, y = perc_err_smsy, fill = factor(buffer)))+
+#   geom_col(position = "dodge")+
+#   labs(y = "Percent Error")+
+#   scale_fill_manual(name = "", values = colorBlindBlack8,
+#                     labels = c("10%", "20%","30%", "40%", "50%","60%", "70%","80%","90%"))+  scale_y_continuous(breaks = seq(-200,900, 100))+
+#   scale_x_continuous(breaks = unique(finalDF$Year))+
+#   # facet_grid(Stock~Model)+
+#   facet_wrap(~Stock)+
+#   theme_clean()+
+#   theme(plot.background = element_blank(),
+#         axis.text = element_text(size=14),
+#         axis.title = element_text(size=14),
+#         legend.position = "right",
+#         axis.text.x = element_text(angle=90))
 
 
 # pdf(file = paste0(wd,"/",stock,"/",model.version,"_",stock,"_retroplots.pdf"))
@@ -722,3 +800,5 @@ buffer <- min((MSA)/100, 0.9)
 # quantile(OFL_pre, probs = c(0.025, .1,0.25, 0.5, 0.75,.9, 0.975))
 # 
 # 1-OFL_cdf(3000)
+
+

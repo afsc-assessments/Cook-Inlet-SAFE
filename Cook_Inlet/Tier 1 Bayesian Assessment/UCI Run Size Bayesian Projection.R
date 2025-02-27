@@ -56,14 +56,14 @@ dir.stan <- file.path(wd,"stan")
 
 
 ######### Import Data ###############
-stock <- 'Kenai Sockeye'
+stock <- 'Kasilof Sockeye'
 # Data <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Data.csv'))
 Forecast <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Forecasts.csv'))
 # Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Table.csv'))
 Table <- read.csv(file=paste0(getwd(),'/',stock,'/', 'Total Run Size Long.csv'))
 
 # Control Section ##############################################################
-model.version = "AR1_beta_long"
+model.version = "AR1_betaFit_long"
 
 # MCMC Parameters
 n.chains = 4
@@ -73,28 +73,27 @@ n.thin = 2
 # Year projection is made
 myYear <- 2025
 start.year <- 1979
-#SMSY point for Kenai
-Esc_goal_pre = (1212000/1000)
 
-# Smsy Escapement goal for Kasilof
-# Esc_goal_pre = (222000/1000)
-# Data processing
+# Smsy point est 
+if(stock == "Kenai Sockeye"){
+  Esc_goal_smsy <- (1212000)
+}
+
+if(stock == "Kasilof Sockeye"){
+  Esc_goal_smsy = (222000)
+}
 
 
 # Fstate
-# Kenai
 Table$C_state <- Table$Total.Catch- Table$EEZCatch
 Table$F_state <- Table$C_state/(Table$Run)
-
-#Kasilof
-# Table$C_state <- Table$Total.Kasilof.R..Catch - Table$Kasilof.R..EEZ.Catch
-# Table$F_state <- Table$C_state/Table$Run
 
 estBetaParams <- function(mu, var) {
   alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
   beta <- alpha * (1 / mu - 1)
   return(params = list(alpha = alpha, beta = beta))
 }
+
 params <-estBetaParams(mu=mean(Table$F_state,na.rm = T), var = sd(Table$F_state,na.rm = T)^2)
 
 A <- params$alpha
@@ -104,16 +103,16 @@ B <- params$beta
 years <- Table$Year[Table$Year < myYear & 
                       Table$Year>=start.year]
 n.years <- length(years)
-# years.F <- Table$Year[Table$Year<myYear &
-#                           Table$Year>=1999]
-# n.years.F <-length(years.F)
+years.F <- Table$Year[Table$Year<myYear &
+                          Table$Year>=2015]
+n.years.F <-length(years.F)
 
 # Realized past run sizes
 runsize <- Table$Run[Table$Year < myYear &
                        Table$Year>= start.year]
 
-# F_state <- Table$F_state[Table$Year < myYear&
-#                            Table$Year>=1999]
+F_state <- Table$F_state[Table$Year < myYear&
+                           Table$Year>=2015]
 
 # Inits list
 # inits <-function(){
@@ -138,9 +137,10 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
                                             ".stan", 
                                             sep = "")), 
             data = list(n_years = n.years,
+                        n_years_F = n.years.F,
                         A=A,
                         B=B,
-                        # n_years_F = n.years.F,
+                        Fstate = F_state,
                         run_hist = runsize),
             # init = inits_ll,
             chains = n.chains,
@@ -159,14 +159,12 @@ fit <- stan(file = file.path(dir.stan,paste("UCI_",
 traceplot(object = fit, c(
   "alpha_R",
   "beta_R",
-  "Fstate"
-  # "mu",
-  # "sigma",
+  # "Fstate",
+  "A",
+  "B"
   # "sigma_F"
 ))
   
-invlogit(-.55)
-invlogit(0)
 # Launch shiny app (Eady way to look at diagnostic plots) ######################
 # shinystan::launch_shinystan(as.shinystan(fit)) # Uncomment to use
 
@@ -218,52 +216,52 @@ plot.df %>%
 
 # FSTATE plots ################################################################
 # Calulate quantiles for data
-quant.predF <- apply(X = (pars$pred_Fstate),
-                       MARGIN = 2,
-                       FUN = quantile,
-                       probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
-                       na.rm = T)
-
-plot.F.df <- data.frame(years,
-                      F_state,
-                      t(quant.predF))
-
-names(plot.F.df) <- c("Year","Fstate","low95","low50","median",
-                    "up50","up95")
-
-curr.Fstate <- quantile(pars$post_curr_predFstate,
-                        probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-
-curr.F.df <- data.frame(Year = myYear,
-                      Fstate =  NA,
-                      low95 = unname(curr.Fstate[1]),
-                      low50 =  unname(curr.Fstate[2]),
-                      median =  unname(curr.Fstate[3]),
-                      up50 =  unname(curr.Fstate[4]),
-                      up95 =  unname(curr.Fstate[5]))
-
-plot.F.df <- rbind(plot.F.df, curr.F.df)
-
-
-plot.F.df %>% 
-  ggplot(aes(x = Year, y = Fstate))+
-  geom_point(aes(col = "Fstate"))+
-  geom_line(aes(col = "Fstate"))+
-  geom_line(aes(y = median, col = "Median Pred"))+
-  geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .2)+
-  geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .2)+
-  coord_cartesian(ylim = c(0,1))+
-  scale_fill_colorblind(name="")+
-  scale_color_colorblind(name="")+
-  theme_clean()+
-  theme(legend.position = "top",
-        plot.background = element_blank())
-
+# quant.predF <- apply(X = (pars$pred_Fstate),
+#                        MARGIN = 2,
+#                        FUN = quantile,
+#                        probs=c(0.025, 0.25, 0.5, 0.75, 0.975), 
+#                        na.rm = T)
+# 
+# plot.F.df <- data.frame(years,
+#                       F_state,
+#                       t(quant.predF))
+# 
+# names(plot.F.df) <- c("Year","Fstate","low95","low50","median",
+#                     "up50","up95")
+# 
+# curr.Fstate <- quantile(pars$post_curr_predFstate,
+#                         probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
+# 
+# curr.F.df <- data.frame(Year = myYear,
+#                       Fstate =  NA,
+#                       low95 = unname(curr.Fstate[1]),
+#                       low50 =  unname(curr.Fstate[2]),
+#                       median =  unname(curr.Fstate[3]),
+#                       up50 =  unname(curr.Fstate[4]),
+#                       up95 =  unname(curr.Fstate[5]))
+# 
+# plot.F.df <- rbind(plot.F.df, curr.F.df)
+# 
+# 
+# plot.F.df %>% 
+#   ggplot(aes(x = Year, y = Fstate))+
+#   geom_point(aes(col = "Fstate"))+
+#   geom_line(aes(col = "Fstate"))+
+#   geom_line(aes(y = median, col = "Median Pred"))+
+#   geom_ribbon(aes(ymin = low95, ymax = up95, fill = "95% CI"), alpha = .2)+
+#   geom_ribbon(aes(ymin = low50, ymax = up50, fill = "50% CI"), alpha = .2)+
+#   coord_cartesian(ylim = c(0,1))+
+#   scale_fill_colorblind(name="")+
+#   scale_color_colorblind(name="")+
+#   theme_clean()+
+#   theme(legend.position = "top",
+#         plot.background = element_blank())
+hist(pars$post_curr_predFstate)
 
 
 # Calculate the OFL
 # OFL_pre <- (pars$post_curr_predRunsize - Esc_goal_pre ) - (pars$post_curr_predRunsize * pars$post_curr_predFstate)
-OFL_pre <- (pars$post_curr_predRunsize - (Esc_goal_pre*1000) ) - (pars$post_curr_predRunsize * pars$Fstate)
+OFL_pre <- (pars$post_curr_predRunsize - (Esc_goal_smsy) ) - (pars$post_curr_predRunsize * pars$post_curr_predFstate)
 
 # Get the CDF to calculate probabilies for statements
 OFL_cdf <- ecdf(OFL_pre)
@@ -277,7 +275,7 @@ colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 run.df <- data.frame("par" = "RunSize", "value" = pars$post_curr_predRunsize)
 
 # Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
-Fstate.df <- data.frame("par" = "F_state", "value" = pars$Fstate)
+Fstate.df <- data.frame("par" = "F_state", "value" = pars$post_curr_predFstate)
 
 OFLpre.df <- data.frame("par" = "OFLpre", "value" = OFL_pre)
 
@@ -287,7 +285,7 @@ run.plot <- ggplot(run.df, aes(x = value/1000))+
   geom_density(fill = colorBlindBlack8[6], alpha = .7)+
   xlab("Predicted Run Size (Thousands of Salmon)")+
   ylab("Relative probability")+
-  coord_cartesian(xlim = c(0,11000), ylim = c(0,.00035))+
+  coord_cartesian(xlim = c(0,max(run.df$value)/1000))+
   theme_classic()+
   theme(legend.position = "top",
         axis.text = element_text(size = 18),
@@ -318,8 +316,15 @@ dense.df <- data.frame(x = estDensity$x,
 
 abc <- (median(OFL_pre)*(1-OFL_cdf(0)))/1000
 
-abc.line <- data.frame(x1 = abc, x2 = abc, y1 = 0, y2 = max(dense.df$y[dense.df$x>=abc]))
-ofl.line <- data.frame(x1 = median(OFL_pre)/1000, x2 = median(OFL_pre)/1000, y1 = 0, y2 = max(dense.df$y[dense.df$x>=median(OFL_pre)]))
+abc.line <- data.frame(x1 = abc,
+                       x2 = abc,
+                       y1 = 0, 
+                       y2 = max(dense.df$y[dense.df$x>=abc]))
+
+ofl.line <- data.frame(x1 = median(OFL_pre)/1000, 
+                       x2 = median(OFL_pre)/1000, 
+                       y1 = 0,
+                       y2 = max(dense.df$y[dense.df$x>=median(OFL_pre)]))
 
 OFLpre.plot <- ggplot(dense.df)+
   geom_line( aes(x = x/1000, y = y))+
@@ -348,7 +353,7 @@ ggarrange(run.plot,
           OFLpre.plot, ncol = 1,
           align = "v", labels = c("a","b","c"), vjust = 0.9)
 
-median(pars$Fstate)
+median(pars$post_curr_predFstate)
 median(pars$post_curr_predRunsize)
 median(OFL_pre)
 
@@ -387,3 +392,15 @@ ggplot(comb.df, aes(x = value, fill = par))+
         plot.background = element_blank(),
         panel.border = element_blank(), 
         legend.background = element_blank() )
+
+Table %>% 
+  ggplot(aes(x = Run, y = F_state))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  geom_text(aes(label = Year))
+
+Table %>% 
+  ggplot(aes(x = Run, y = C_state))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  geom_text(aes(label = Year))

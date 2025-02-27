@@ -11,10 +11,11 @@
 data {
   // int<lower=0> n_years_F;
   int<lower=0> n_years;
+  int<lower=0> n_years_F;
   vector<lower=0>[n_years]run_hist;
-  // real<lower=0> F_state_mean;
-  real<lower=0> A;
-  real<lower=0> B;
+  vector<lower=0>[n_years_F]Fstate;
+  // real<lower=0> A;
+  // real<lower=0> B;
 }
 
 transformed data{
@@ -26,7 +27,8 @@ transformed data{
 }
 
 parameters {
-  real Fstate;
+  real<lower=0> A;
+  real<lower=0> B;
   
   real alpha_R;
   real beta_R;
@@ -38,7 +40,7 @@ parameters {
 transformed parameters{
   
   // PF run size parameters
-  vector [n_years]ln_predRunsize;
+  vector[n_years]ln_predRunsize;
   real ln_curr_predRunsize;
   
   
@@ -59,16 +61,15 @@ transformed parameters{
 model {
   // Priors
 
-  
+  A ~ uniform(1,100);
+  B ~ uniform(1,100);
   
   alpha_R ~ normal(0, 100);
-  beta_R ~ normal(0, 1);
+  beta_R ~ normal(0, 10);
   sigma ~ normal(0,5);
   
   // State harvest likelihood
-  // err ~ normal(0, 5);
-  
-  Fstate~beta(A, B);
+  Fstate ~ beta(A, B);
   
   // Run size likelihood
   for (n in 2:n_years) {
@@ -79,16 +80,12 @@ model {
 }
 
 generated quantities{
-  // real logit_post_curr_predFstate;
   real post_curr_predFstate;
   real ln_post_curr_pred;
   real post_curr_predRunsize;
   
   
   
-  // logit_post_curr_predFstate =  normal_rng(F_mean_logit,sigma_F_logit);
-  
-  // post_curr_predFstate = inv_logit(logit_post_curr_predFstate);
   post_curr_predFstate = beta_rng(A,B);
   
   ln_post_curr_pred = normal_rng(ln_curr_predRunsize,sigma);
